@@ -5,6 +5,8 @@ const zgpu = @import("zgpu");
 const wgpu = zgpu.wgpu;
 const zgui = @import("zgui");
 
+const t = @import("table.zig");
+
 const window_title = "Ludo DB";
 
 pub fn main() !void {
@@ -68,6 +70,31 @@ pub fn main() !void {
 
     zgui.getStyle().scaleAllSizes(scale_factor);
 
+    var table_category: t.Table = .{
+        .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
+        .allocator = gpa,
+    };
+    {
+        const column: t.Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
+            .datatype = .{ .text = .{} },
+        };
+        table_category.columns.appendAssumeCapacity(column);
+    }
+    {
+        const column: t.Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("parent") catch unreachable,
+            .datatype = .{ .reference = .{
+                .table = &table_category,
+                .column = &table_category.columns.slice()[0],
+            } },
+        };
+        table_category.columns.appendAssumeCapacity(column);
+    }
+
+    table_category.addRow();
+    table_category.addRow();
+
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
 
@@ -86,19 +113,7 @@ pub fn main() !void {
             }
         }
 
-        if (zgui.beginTable("table1", .{
-            .column = 3,
-        })) {
-            for (0..4) |row| {
-                _ = row; // autofix
-                zgui.tableNextRow(.{});
-                for (0..3) |column| {
-                    _ = zgui.tableSetColumnIndex(@intCast(column));
-                    zgui.text("Row ", .{});
-                }
-            }
-            zgui.endTable();
-        }
+        doTable(table_category);
 
         zgui.end();
 
@@ -125,9 +140,21 @@ pub fn main() !void {
     }
 }
 
-test "simple test" {
-    var list = std.ArrayList(i32).init(std.testing.allocator);
-    defer list.deinit(); // try commenting this out and see if zig detects the memory leak!
-    try list.append(42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
+fn doTable(table: t.Table) void {
+    if (zgui.beginTable(@ptrCast(table.name.slice()), .{
+        .column = table.columns.len,
+    })) {
+        for (0..table.row_count) |i_row| {
+            zgui.tableNextRow(.{});
+            zgui.pushIntId(@intCast(i_row));
+            for (table.columns.slice(), 0..) |column, i_col| {
+                zgui.pushIntId(@intCast(i_col));
+                _ = zgui.tableSetColumnIndex(@intCast(i_col));
+                t.drawElement(table, column, i_row);
+                zgui.popId();
+            }
+            zgui.popId();
+        }
+        zgui.endTable();
+    }
 }
