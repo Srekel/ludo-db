@@ -94,6 +94,8 @@ pub fn main() !void {
 
     table_category.addRow();
     table_category.addRow();
+    table_category.addRow();
+    table_category.addRow();
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -114,6 +116,7 @@ pub fn main() !void {
         }
 
         doTable(table_category);
+        // zgui.showDemoWindow(null);
 
         zgui.end();
 
@@ -144,6 +147,11 @@ fn doTable(table: t.Table) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.columns.len,
     })) {
+        zgui.tableNextRow(.{});
+        for (table.columns.slice(), 0..) |column, i_col| {
+            _ = zgui.tableSetColumnIndex(@intCast(i_col));
+            zgui.labelText("", "{s}", .{column.name.slice()});
+        }
         for (0..table.row_count) |i_row| {
             zgui.tableNextRow(.{});
             zgui.pushIntId(@intCast(i_row));

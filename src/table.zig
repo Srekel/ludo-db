@@ -24,17 +24,53 @@ pub fn drawText(celldata: []u8) void {
 }
 
 pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
+    const y = zgui.getCursorPosY();
     const config: *const ColumnReference = @alignCast(std.mem.bytesAsValue(ColumnReference, config_bytes));
     const i_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata));
-    zgui.beginDisabled(.{ .disabled = true });
-    drawElement(config.table.*, config.column.*, i_row.*);
-    zgui.endDisabled();
+    // zgui.beginDisabled(.{ .disabled = true });
+    // zgui.setNextItemAllowOverlap();
+    // drawElement(config.table.*, config.column.*, i_row.*);
+    // zgui.endDisabled();
+    // if (zgui.isItemHovered(.{ .allow_when_disabled = true })) {
+    // zgui.sameLine(.{});
+    const size = zgui.getItemRectSize();
+    _ = size; // autofix
+    // zgui.setCursorPosX(zgui.getCursorPosX() - size[0]);
+    // zgui.setCursorPosY(zgui.getCursorPosY() - size[1]);
+    zgui.setCursorPosY(y);
+    // drawElement(config.table.*, config.column.*, i_row.*);
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    const allocator = arena.allocator();
+    var buf = std.ArrayList(u8).init(allocator);
+    defer buf.deinit();
+    const writer = buf.writer();
+    for (config.column.data.slice()) |text| {
+        _ = writer.write(text[0..std.mem.indexOf(u8, text, "\x00").?]) catch unreachable;
+        _ = writer.writeByte(0) catch unreachable;
+    }
+    _ = writer.writeByte(0) catch unreachable;
+    // _ = writer.write("LOL") catch unreachable;
+    // _ = writer.writeByte(0) catch unreachable;
+
+    // var item: i32 = @intCast(i_row.*);
+    _ = zgui.combo("refcombo", .{
+        .current_item = @ptrCast(i_row),
+        .items_separated_by_zeros = @ptrCast(buf.items),
+        .popup_max_height_in_items = 10,
+    });
+    // }
 }
 
 pub const ColumnReference = struct {
     table: *Table,
     column: *Column,
     default: u32 = 0,
+};
+
+pub const SubTable = struct {
+    table: *Table,
+    // column: *Column,
+    // default: u32 = 0,
 };
 
 pub const ColumnType = union(enum) {
