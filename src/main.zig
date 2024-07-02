@@ -79,6 +79,7 @@ pub fn main() !void {
         const column: t.Column = .{
             .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
             .owner_table = &table_category,
+            // .visible = false,
             .datatype = .{ .text = .{} },
         };
         table_category.columns.appendAssumeCapacity(column);
@@ -112,12 +113,22 @@ pub fn main() !void {
         const subcolumn_fk: t.Column = .{
             .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
             .owner_table = subtable,
+            .visible = false,
+            .datatype = .{ .reference = .{
+                .table = &table_category,
+                .column = &table_category.columns.slice()[0],
+            } },
+        };
+        const subcolumn_parent: t.Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("Parent") catch unreachable,
+            .owner_table = subtable,
             .datatype = .{ .reference = .{
                 .table = &table_category,
                 .column = &table_category.columns.slice()[0],
             } },
         };
         subtable.columns.appendAssumeCapacity(subcolumn_fk);
+        subtable.columns.appendAssumeCapacity(subcolumn_parent);
     }
 
     table_category.addRow();
@@ -179,12 +190,20 @@ fn doTable(table: *t.Table, start_row: usize) void {
             .borders = zgui.TableBorderFlags.all,
         },
     })) {
-        zgui.tableSetupColumn("Row", .{});
+        zgui.tableSetupColumn("Row", .{ .flags = .{
+            .width_fixed = true,
+        } });
         // zgui.tableNextRow(.{});
         // _ = zgui.tableSetColumnIndex(@intCast(0));
         // zgui.labelText("", "Row", .{});
         for (table.columns.slice()) |column| {
-            _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{});
+            _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{
+                .flags = .{
+                    .width_stretch = true,
+                    .disabled = !column.visible,
+                    // .default_hide = !column.visible,
+                },
+            });
             // zgui.labelText("", "{s}", .{column.name.slice()});
         }
 

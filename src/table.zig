@@ -108,6 +108,7 @@ pub const ColumnType = union(enum) {
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
     owner_table: *Table,
+    visible: bool = true,
     datatype: ColumnType,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
