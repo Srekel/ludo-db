@@ -179,22 +179,30 @@ fn doTable(table: *t.Table, start_row: usize) void {
             .borders = zgui.TableBorderFlags.all,
         },
     })) {
-        zgui.tableNextRow(.{});
-        _ = zgui.tableSetColumnIndex(@intCast(0));
-        zgui.labelText("", "Row", .{});
-        for (table.columns.slice(), 1..) |column, i_col| {
-            _ = zgui.tableSetColumnIndex(@intCast(i_col));
-            zgui.labelText("", "{s}", .{column.name.slice()});
+        zgui.tableSetupColumn("Row", .{});
+        // zgui.tableNextRow(.{});
+        // _ = zgui.tableSetColumnIndex(@intCast(0));
+        // zgui.labelText("", "Row", .{});
+        for (table.columns.slice()) |column| {
+            _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{});
+            // zgui.labelText("", "{s}", .{column.name.slice()});
         }
+
+        zgui.tableHeadersRow();
+
         var table_active = true;
         for (start_row..table.row_count) |i_row| {
             if (!table_active) {
                 table_active = true;
-                _ = zgui.beginTable(@ptrCast(table.name.slice()), .{ .column = table.columns.len, .flags = .{
-                    .resizable = true,
-                    .borders = zgui.TableBorderFlags.all,
-                } });
+                _ = zgui.beginTable(@ptrCast(table.name.slice()), .{
+                    .column = table.columns.len + 1,
+                    .flags = .{
+                        .resizable = true,
+                        .borders = zgui.TableBorderFlags.all,
+                    },
+                });
             }
+
             zgui.tableNextRow(.{});
             zgui.pushIntId(@intCast(i_row));
 
