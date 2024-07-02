@@ -12,6 +12,7 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) void {
             drawText(cell_data);
         },
         .reference => |value| drawReference(std.mem.asBytes(&value), cell_data),
+        else => {},
     }
 }
 
@@ -53,7 +54,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     // _ = writer.writeByte(0) catch unreachable;
 
     // var item: i32 = @intCast(i_row.*);
-    _ = zgui.combo("refcombo", .{
+    _ = zgui.combo("##refcombo", .{
         .current_item = @ptrCast(i_row),
         .items_separated_by_zeros = @ptrCast(buf.items),
         .popup_max_height_in_items = 10,
@@ -79,6 +80,7 @@ pub const ColumnType = union(enum) {
         text_len: u32 = 32,
     },
     reference: ColumnReference,
+    subtable: SubTable,
     // number_float: .{
     //     .cellsize = @sizeOf(f32),
     // },
@@ -92,8 +94,20 @@ pub const ColumnType = union(enum) {
 
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
+    owner_table: *Table,
     datatype: ColumnType,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
+
+    // pub fn setType(self: *Column, datatype: ColumnType) void {
+    //     self.datatype = datatype;
+    //     switch (datatype) {
+    //         .subtable => {
+    //             var subtable = self.parent_table.subtables.addOneAssumeCapacity();
+    //             _ = subtable; // autofix
+    //         },
+    //         else => void,
+    //     }
+    // }
 };
 
 pub const Table = struct {
@@ -101,6 +115,8 @@ pub const Table = struct {
     allocator: std.mem.Allocator,
     columns: std.BoundedArray(Column, 32) = .{},
     row_count: u32 = 0,
+    subtables: std.ArrayList(Table),
+
     pub fn addRow(self: *Table) void {
         self.row_count += 1;
         for (self.columns.slice()) |*column| {
@@ -118,6 +134,7 @@ pub const Table = struct {
                     const i_row_bytes = std.mem.asBytes(i_row);
                     column.data.appendAssumeCapacity(i_row_bytes);
                 },
+                else => {},
             }
         }
     }

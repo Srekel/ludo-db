@@ -73,10 +73,12 @@ pub fn main() !void {
     var table_category: t.Table = .{
         .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
         .allocator = gpa,
+        .subtables = std.ArrayList(t.Table).init(gpa),
     };
     {
         const column: t.Column = .{
             .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
+            .owner_table = &table_category,
             .datatype = .{ .text = .{} },
         };
         table_category.columns.appendAssumeCapacity(column);
@@ -84,6 +86,7 @@ pub fn main() !void {
     {
         const column: t.Column = .{
             .name = std.BoundedArray(u8, 128).fromSlice("parent") catch unreachable,
+            .owner_table = &table_category,
             .datatype = .{ .reference = .{
                 .table = &table_category,
                 .column = &table_category.columns.slice()[0],
@@ -91,6 +94,22 @@ pub fn main() !void {
         };
         table_category.columns.appendAssumeCapacity(column);
     }
+    // {
+    //     const subtable: t.Table = .{
+    //         .name = std.BoundedArray(u8, 128).fromSlice("sub") catch unreachable,
+    //         .allocator = gpa,
+    //         .subtables = std.ArrayList(t.Table).init(gpa),
+    //     };
+    //     table_category.subtables.appendAssumeCapacity(subtable);
+    //     const column: t.Column = .{
+    //         .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
+    //         .owner_table = &table_category,
+    //         .datatype = .{ .subtable = .{
+    //             .table = &subtable,
+    //         } },
+    //     };
+    //     table_category.columns.appendAssumeCapacity(column);
+    // }
 
     table_category.addRow();
     table_category.addRow();
@@ -146,6 +165,10 @@ pub fn main() !void {
 fn doTable(table: t.Table) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.columns.len,
+        .flags = .{
+            .resizable = true,
+            .borders = zgui.TableBorderFlags.all,
+        },
     })) {
         zgui.tableNextRow(.{});
         for (table.columns.slice(), 0..) |column, i_col| {
