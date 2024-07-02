@@ -3,17 +3,18 @@ const zgui = @import("zgui");
 
 const ROW_COUNT = 1 * 1024;
 
-pub fn drawElement(table: Table, column: Column, i_row: usize) void {
+pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
     _ = table; // autofix
 
     const cell_data = column.data.slice()[i_row];
     switch (column.datatype) {
-        .text => {
-            drawText(cell_data);
-        },
+        .text => drawText(cell_data),
         .reference => |value| drawReference(std.mem.asBytes(&value), cell_data),
-        else => {},
+        .subtable => |value| return drawSubtable(std.mem.asBytes(&value), cell_data, column),
+        // else => {},
     }
+
+    return null;
 }
 
 pub fn drawText(celldata: []u8) void {
@@ -60,6 +61,18 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
         .popup_max_height_in_items = 10,
     });
     // }
+}
+
+pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column) ?*Table {
+    _ = config_bytes;
+    const is_active: *bool = std.mem.bytesAsValue(bool, celldata);
+    if (zgui.button("TABLE", .{})) {
+        is_active.* = !is_active.*;
+    }
+    if (is_active.*) {
+        return column.datatype.subtable.table;
+    }
+    return null;
 }
 
 pub const ColumnReference = struct {
@@ -134,7 +147,14 @@ pub const Table = struct {
                     const i_row_bytes = std.mem.asBytes(i_row);
                     column.data.appendAssumeCapacity(i_row_bytes);
                 },
-                else => {},
+                .subtable => |value| {
+                    _ = value;
+                    const is_active = self.allocator.create(bool) catch unreachable;
+                    is_active.* = false;
+                    const is_active_bytes = std.mem.asBytes(is_active);
+                    column.data.appendAssumeCapacity(is_active_bytes);
+                },
+                // else => {},
             }
         }
     }

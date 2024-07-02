@@ -73,7 +73,7 @@ pub fn main() !void {
     var table_category: t.Table = .{
         .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
         .allocator = gpa,
-        .subtables = std.ArrayList(t.Table).init(gpa),
+        .subtables = std.ArrayList(t.Table).initCapacity(gpa, 4) catch unreachable,
     };
     {
         const column: t.Column = .{
@@ -94,22 +94,31 @@ pub fn main() !void {
         };
         table_category.columns.appendAssumeCapacity(column);
     }
-    // {
-    //     const subtable: t.Table = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("sub") catch unreachable,
-    //         .allocator = gpa,
-    //         .subtables = std.ArrayList(t.Table).init(gpa),
-    //     };
-    //     table_category.subtables.appendAssumeCapacity(subtable);
-    //     const column: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
-    //         .owner_table = &table_category,
-    //         .datatype = .{ .subtable = .{
-    //             .table = &subtable,
-    //         } },
-    //     };
-    //     table_category.columns.appendAssumeCapacity(column);
-    // }
+    {
+        const subtable = table_category.subtables.addOneAssumeCapacity();
+        subtable.* = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("sub") catch unreachable,
+            .allocator = gpa,
+            .subtables = std.ArrayList(t.Table).init(gpa),
+        };
+        const column: t.Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
+            .owner_table = &table_category,
+            .datatype = .{ .subtable = .{
+                .table = subtable,
+            } },
+        };
+        table_category.columns.appendAssumeCapacity(column);
+        const subcolumn_fk: t.Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
+            .owner_table = subtable,
+            .datatype = .{ .reference = .{
+                .table = &table_category,
+                .column = &table_category.columns.slice()[0],
+            } },
+        };
+        subtable.columns.appendAssumeCapacity(subcolumn_fk);
+    }
 
     table_category.addRow();
     table_category.addRow();
@@ -134,8 +143,8 @@ pub fn main() !void {
             }
         }
 
-        doTable(table_category);
-        // zgui.showDemoWindow(null);
+        doTable(&table_category, 0);
+        zgui.showDemoWindow(null);
 
         zgui.end();
 
@@ -162,30 +171,62 @@ pub fn main() !void {
     }
 }
 
-fn doTable(table: t.Table) void {
+fn doTable(table: *t.Table, start_row: usize) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
-        .column = table.columns.len,
+        .column = table.columns.len + 1,
         .flags = .{
             .resizable = true,
             .borders = zgui.TableBorderFlags.all,
         },
     })) {
         zgui.tableNextRow(.{});
-        for (table.columns.slice(), 0..) |column, i_col| {
+        _ = zgui.tableSetColumnIndex(@intCast(0));
+        zgui.labelText("", "Row", .{});
+        for (table.columns.slice(), 1..) |column, i_col| {
             _ = zgui.tableSetColumnIndex(@intCast(i_col));
             zgui.labelText("", "{s}", .{column.name.slice()});
         }
-        for (0..table.row_count) |i_row| {
+        var table_active = true;
+        for (start_row..table.row_count) |i_row| {
+            if (!table_active) {
+                table_active = true;
+                _ = zgui.beginTable(@ptrCast(table.name.slice()), .{ .column = table.columns.len, .flags = .{
+                    .resizable = true,
+                    .borders = zgui.TableBorderFlags.all,
+                } });
+            }
             zgui.tableNextRow(.{});
             zgui.pushIntId(@intCast(i_row));
-            for (table.columns.slice(), 0..) |column, i_col| {
+
+            _ = zgui.tableSetColumnIndex(@intCast(0));
+            zgui.labelText("##row", "{d}", .{i_row});
+
+            var subtable_opt: ?*t.Table = null;
+            for (table.columns.slice(), 1..) |column, i_col| {
                 zgui.pushIntId(@intCast(i_col));
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
-                t.drawElement(table, column, i_row);
+                const subtable_opt_temp = t.drawElement(table.*, column, i_row);
+
+                if (subtable_opt_temp) |subtable| {
+                    subtable_opt = subtable;
+                }
                 zgui.popId();
             }
+
             zgui.popId();
+            if (subtable_opt) |subtable| {
+                table_active = false;
+                zgui.endTable();
+                doTable(subtable, 0);
+            }
         }
-        zgui.endTable();
+        if (table_active) {
+            zgui.tableNextRow(.{});
+            _ = zgui.tableSetColumnIndex(0);
+            if (zgui.button("[+]", .{})) {
+                table.addRow();
+            }
+            zgui.endTable();
+        }
     }
 }
