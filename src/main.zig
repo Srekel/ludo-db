@@ -155,7 +155,7 @@ pub fn main() !void {
             }
         }
 
-        doTable(&table_category, 0);
+        doTable(&table_category, 0, .{});
         zgui.showDemoWindow(null);
 
         zgui.end();
@@ -183,7 +183,15 @@ pub fn main() !void {
     }
 }
 
-fn doTable(table: *t.Table, start_row: usize) void {
+const Filter = struct {
+    fk: ?usize = null,
+};
+
+fn doTable(
+    table: *t.Table,
+    start_row: usize,
+    filter: Filter,
+) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.visibleRowCount() + 1,
         .flags = .{
@@ -216,6 +224,13 @@ fn doTable(table: *t.Table, start_row: usize) void {
 
         var table_active = true;
         for (start_row..table.row_count) |i_row| {
+            if (filter.fk) |filter_fk| {
+                const column = table.getColumn("FK").?;
+                const column_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column.data.slice()[i_row]));
+                if (filter_fk != column_fk.*) {
+                    continue;
+                }
+            }
             if (!table_active) {
                 table_active = true;
                 _ = zgui.beginTable(@ptrCast(table.name.slice()), .{
@@ -254,7 +269,7 @@ fn doTable(table: *t.Table, start_row: usize) void {
             if (subtable_opt) |subtable| {
                 table_active = false;
                 zgui.endTable();
-                doTable(subtable, 0);
+                doTable(subtable, 0, .{ .fk = i_row });
             }
         }
         if (table_active) {

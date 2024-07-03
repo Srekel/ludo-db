@@ -171,6 +171,16 @@ pub const Table = struct {
         }
         return count;
     }
+
+    pub fn getColumn(self: *Table, name: []const u8) ?*Column {
+        for (self.columns.slice()) |*column| {
+            if (std.mem.eql(u8, name, column.name.slice())) {
+                return column;
+            }
+        }
+
+        return null;
+    }
 };
 
 fn main() void {
