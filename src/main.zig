@@ -88,6 +88,7 @@ pub fn main() !void {
         const column: t.Column = .{
             .name = std.BoundedArray(u8, 128).fromSlice("parent") catch unreachable,
             .owner_table = &table_category,
+            .visible = false,
             .datatype = .{ .reference = .{
                 .table = &table_category,
                 .column = &table_category.columns.slice()[0],
@@ -184,9 +185,10 @@ pub fn main() !void {
 
 fn doTable(table: *t.Table, start_row: usize) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
-        .column = table.columns.len + 1,
+        .column = table.visibleRowCount() + 1,
         .flags = .{
             .resizable = true,
+            .row_bg = true,
             .borders = zgui.TableBorderFlags.all,
         },
     })) {
@@ -197,6 +199,9 @@ fn doTable(table: *t.Table, start_row: usize) void {
         // _ = zgui.tableSetColumnIndex(@intCast(0));
         // zgui.labelText("", "Row", .{});
         for (table.columns.slice()) |column| {
+            if (!column.visible) {
+                continue;
+            }
             _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{
                 .flags = .{
                     .width_stretch = true,
@@ -214,7 +219,7 @@ fn doTable(table: *t.Table, start_row: usize) void {
             if (!table_active) {
                 table_active = true;
                 _ = zgui.beginTable(@ptrCast(table.name.slice()), .{
-                    .column = table.columns.len + 1,
+                    .column = table.visibleRowCount() + 1,
                     .flags = .{
                         .resizable = true,
                         .borders = zgui.TableBorderFlags.all,
@@ -229,7 +234,12 @@ fn doTable(table: *t.Table, start_row: usize) void {
             zgui.labelText("##row", "{d}", .{i_row});
 
             var subtable_opt: ?*t.Table = null;
-            for (table.columns.slice(), 1..) |column, i_col| {
+            var i_col: usize = 0;
+            for (table.columns.slice()) |column| {
+                if (!column.visible) {
+                    continue;
+                }
+                i_col += 1;
                 zgui.pushIntId(@intCast(i_col));
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);

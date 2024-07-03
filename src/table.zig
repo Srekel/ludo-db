@@ -19,6 +19,7 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
 
 pub fn drawText(celldata: []u8) void {
     const text: [:0]u8 = @ptrCast(celldata);
+    zgui.setNextItemWidth(-1);
     _ = zgui.inputText(
         "",
         .{ .buf = text },
@@ -55,6 +56,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     // _ = writer.writeByte(0) catch unreachable;
 
     // var item: i32 = @intCast(i_row.*);
+    zgui.setNextItemWidth(-1);
     _ = zgui.combo("##refcombo", .{
         .current_item = @ptrCast(i_row),
         .items_separated_by_zeros = @ptrCast(buf.items),
@@ -158,6 +160,16 @@ pub const Table = struct {
                 // else => {},
             }
         }
+    }
+
+    pub fn visibleRowCount(self: Table) i32 {
+        var count: i32 = 0;
+        for (self.columns.slice()) |column| {
+            if (column.visible) {
+                count += 1;
+            }
+        }
+        return count;
     }
 };
 
