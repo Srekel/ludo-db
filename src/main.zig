@@ -22,7 +22,7 @@ pub fn main() !void {
 
     zglfw.windowHintTyped(.client_api, .no_api);
 
-    const window = try zglfw.Window.create(800, 500, window_title, null);
+    const window = try zglfw.Window.create(900, 600, window_title, null);
     defer window.destroy();
     window.setSizeLimits(400, 400, -1, -1);
 
@@ -149,16 +149,30 @@ pub fn main() !void {
         zgui.setNextWindowPos(.{ .x = 20.0, .y = 20.0, .cond = .first_use_ever });
         zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
 
-        if (zgui.begin("My window", .{})) {
-            if (zgui.button("Press me!", .{ .w = 200.0 })) {
-                std.debug.print("Button pressed\n", .{});
-            }
+        if (zgui.button("Save", .{})) {
+            var jsonbuf: [100000]u8 = undefined;
+            var fba = std.heap.FixedBufferAllocator.init(&jsonbuf);
+            var string = std.ArrayList(u8).init(fba.allocator());
+            try std.json.stringify(table_category, .{}, string.writer());
+            var buf: [256]u8 = undefined;
+
+            const str = std.fmt.bufPrintZ(&buf, "{s}.json", .{table_category.name.slice()}) catch unreachable;
+
+            const file = try std.fs.cwd().createFile(
+                str,
+                .{ .read = true },
+            );
+            defer file.close();
+
+            const bytes_written = try file.writeAll(string.items);
+            _ = bytes_written; // autofix
         }
 
-        doTable(&table_category, 0, .{});
+        if (zgui.begin("My window", .{})) {
+            doTable(&table_category, 0, .{}, null);
+            zgui.end();
+        }
         zgui.showDemoWindow(null);
-
-        zgui.end();
 
         const swapchain_texv = gctx.swapchain.getCurrentTextureView();
         defer swapchain_texv.release();
@@ -187,25 +201,29 @@ const Filter = struct {
     fk: ?usize = null,
 };
 
+const show_row = false;
+
 fn doTable(
     table: *t.Table,
     start_row: usize,
     filter: Filter,
+    parent_row: ?usize,
 ) void {
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
-        .column = table.visibleRowCount() + 1,
+        .column = table.visibleRowCount() + if (show_row) 1 else 0,
         .flags = .{
             .resizable = true,
             .row_bg = true,
             .borders = zgui.TableBorderFlags.all,
         },
     })) {
-        zgui.tableSetupColumn("Row", .{ .flags = .{
-            .width_fixed = true,
-        } });
-        // zgui.tableNextRow(.{});
-        // _ = zgui.tableSetColumnIndex(@intCast(0));
-        // zgui.labelText("", "Row", .{});
+        // Headers
+        if (show_row) {
+            zgui.tableSetupColumn("Row", .{ .flags = .{
+                .width_fixed = true,
+            } });
+        }
+
         for (table.columns.slice()) |column| {
             if (!column.visible) {
                 continue;
@@ -213,11 +231,9 @@ fn doTable(
             _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{
                 .flags = .{
                     .width_stretch = true,
-                    .disabled = !column.visible,
-                    // .default_hide = !column.visible,
+                    // .disabled = !column.visible,
                 },
             });
-            // zgui.labelText("", "{s}", .{column.name.slice()});
         }
 
         zgui.tableHeadersRow();
@@ -234,7 +250,7 @@ fn doTable(
             if (!table_active) {
                 table_active = true;
                 _ = zgui.beginTable(@ptrCast(table.name.slice()), .{
-                    .column = table.visibleRowCount() + 1,
+                    .column = table.visibleRowCount() + if (show_row) 1 else 0,
                     .flags = .{
                         .resizable = true,
                         .borders = zgui.TableBorderFlags.all,
@@ -245,16 +261,18 @@ fn doTable(
             zgui.tableNextRow(.{});
             zgui.pushIntId(@intCast(i_row));
 
-            _ = zgui.tableSetColumnIndex(@intCast(0));
-            zgui.labelText("##row", "{d}", .{i_row});
+            if (show_row) {
+                _ = zgui.tableSetColumnIndex(@intCast(0));
+                zgui.labelText("##row", "{d}", .{i_row});
+            }
 
             var subtable_opt: ?*t.Table = null;
-            var i_col: usize = 0;
+            var i_col: usize = if (show_row) 0 else std.math.maxInt(usize);
             for (table.columns.slice()) |column| {
                 if (!column.visible) {
                     continue;
                 }
-                i_col += 1;
+                i_col +%= 1;
                 zgui.pushIntId(@intCast(i_col));
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);
@@ -269,7 +287,10 @@ fn doTable(
             if (subtable_opt) |subtable| {
                 table_active = false;
                 zgui.endTable();
-                doTable(subtable, 0, .{ .fk = i_row });
+                const x = zgui.getCursorPosX();
+                zgui.setCursorPosX(x + 30);
+                doTable(subtable, 0, .{ .fk = i_row }, i_row);
+                zgui.setCursorPosX(x);
             }
         }
         if (table_active) {
@@ -277,6 +298,12 @@ fn doTable(
             _ = zgui.tableSetColumnIndex(0);
             if (zgui.button("[+]", .{})) {
                 table.addRow();
+
+                if (parent_row) |fk| {
+                    const column = table.getColumn("FK").?;
+                    const column_fk: *u32 = column.getRowAs(column.data.slice().len - 1, u32);
+                    column_fk.* = @intCast(fk);
+                }
             }
             zgui.endTable();
         }

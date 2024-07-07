@@ -124,6 +124,13 @@ pub const Column = struct {
     //         else => void,
     //     }
     // }
+
+    pub fn getRow(self: *Column, row: usize) []u8 {
+        return self.data.buffer[row];
+    }
+    pub fn getRowAs(self: *Column, row: usize, T: type) *T {
+        return @alignCast(@ptrCast(self.data.buffer[row]));
+    }
 };
 
 pub const Table = struct {
