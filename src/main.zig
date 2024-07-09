@@ -5,6 +5,8 @@ const zgpu = @import("zgpu");
 const wgpu = zgpu.wgpu;
 const zgui = @import("zgui");
 
+const save = @import("json_format.zig");
+
 const t = @import("table.zig");
 
 const window_title = "Ludo DB";
@@ -71,7 +73,7 @@ pub fn main() !void {
     zgui.getStyle().scaleAllSizes(scale_factor);
 
     var table_category: t.Table = .{
-        .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
+        .name = std.BoundedArray(u8, 128).fromSlice("Categories") catch unreachable,
         .allocator = gpa,
         .subtables = std.ArrayList(t.Table).initCapacity(gpa, 4) catch unreachable,
     };
@@ -99,7 +101,7 @@ pub fn main() !void {
     {
         const subtable = table_category.subtables.addOneAssumeCapacity();
         subtable.* = .{
-            .name = std.BoundedArray(u8, 128).fromSlice("sub") catch unreachable,
+            .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
             .allocator = gpa,
             .subtables = std.ArrayList(t.Table).init(gpa),
         };
@@ -150,22 +152,7 @@ pub fn main() !void {
         zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
 
         if (zgui.button("Save", .{})) {
-            var jsonbuf: [100000]u8 = undefined;
-            var fba = std.heap.FixedBufferAllocator.init(&jsonbuf);
-            var string = std.ArrayList(u8).init(fba.allocator());
-            try std.json.stringify(table_category, .{}, string.writer());
-            var buf: [256]u8 = undefined;
-
-            const str = std.fmt.bufPrintZ(&buf, "{s}.json", .{table_category.name.slice()}) catch unreachable;
-
-            const file = try std.fs.cwd().createFile(
-                str,
-                .{ .read = true },
-            );
-            defer file.close();
-
-            const bytes_written = try file.writeAll(string.items);
-            _ = bytes_written; // autofix
+            save.exportProject((&table_category)[0..1]) catch unreachable;
         }
 
         if (zgui.begin("My window", .{})) {
