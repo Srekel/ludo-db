@@ -1,52 +1,7 @@
 const std = @import("std");
 const t = @import("table.zig");
 
-// pub const ColumnReference = struct {
-//     table: *Table,
-//     column: *Column,
-//     default: u32 = 0,
-// };
-
-// pub const SubTable = struct {
-//     table: *Table,
-// };
-
-// pub const ColumnType = union(enum) {
-//     text: struct {
-//         default: [:0]const u8 = "empty",
-//         text_len: u32 = 32,
-//     },
-//     reference: ColumnReference,
-//     subtable: SubTable,
-// };
-
-// pub const Column = struct {
-//     name: std.BoundedArray(u8, 128) = .{},
-//     data: std.ArrayList(ColumnType) = .{},
-// };
-
-// pub const Table = struct {
-//     name: std.BoundedArray(u8, 128) = .{},
-//     allocator: std.mem.Allocator,
-//     columns: std.BoundedArray(Column, 32) = .{},
-//     row_count: u32 = 0,
-//     subtables: std.ArrayList(Table),
-// };
-
-// pub const Sheets = std.ArrayList(Table);
-
-const json = std.json;
-pub const StringifyOptions = json.StringifyOptions;
-pub const stringify = json.stringify;
-pub const stringifyMaxDepth = json.stringifyMaxDepth;
-pub const stringifyArbitraryDepth = json.stringifyArbitraryDepth;
-pub const stringifyAlloc = json.stringifyAlloc;
-pub const writeStream = json.writeStream;
-pub const writeStreamMaxDepth = json.writeStreamMaxDepth;
-pub const writeStreamArbitraryDepth = json.writeStreamArbitraryDepth;
-pub const WriteStream = json.WriteStream;
-pub const encodeJsonString = json.encodeJsonString;
-pub const encodeJsonStringChars = json.encodeJsonStringChars;
+pub const writeStream = std.json.writeStream;
 
 fn writeFile(data: anytype, name: []const u8) !void {
     var buf: [256]u8 = undefined;
@@ -69,6 +24,41 @@ fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
     var write_stream = writeStream(out.writer(), .{ .whitespace = .indent_2 });
     defer write_stream.deinit();
 
+    var tables = std.ArrayList(*const t.Table).init(allocator);
+    tables.append(&table) catch unreachable;
+    for (table.columns.slice()) |column| {
+        if (column.datatype == .subtable) {
+            tables.append(column.datatype.subtable.table) catch unreachable;
+        }
+    }
+
+    {
+        try write_stream.beginObject();
+        defer write_stream.endObject() catch unreachable;
+        {
+            try write_stream.objectField("table_metadatas");
+
+            try write_stream.beginArray();
+            defer write_stream.endArray() catch unreachable;
+            for (tables.items) |table_ptr| {
+                try writeTableMetadata(table_ptr.*, &write_stream);
+            }
+        }
+
+        {
+            try write_stream.objectField("table_datas");
+
+            try write_stream.beginArray();
+            defer write_stream.endArray() catch unreachable;
+            for (tables.items) |table_ptr| {
+                try writeTableData(table_ptr.*, &write_stream);
+            }
+        }
+    }
+    try writeFile(out.items, table.name.slice());
+}
+
+fn writeTableMetadata(table: t.Table, write_stream: anytype) !void {
     {
         try write_stream.beginObject();
         defer write_stream.endObject() catch unreachable;
@@ -85,22 +75,10 @@ fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
             try write_stream.beginArray();
             defer write_stream.endArray() catch unreachable;
             for (table.columns.slice()) |column| {
-                try writeColumnMetadata(table, column, &write_stream);
-            }
-        }
-
-        {
-            // Rows
-            try write_stream.objectField("rows");
-            try write_stream.beginArray();
-            defer write_stream.endArray() catch unreachable;
-            for (0..table.row_count) |row_i| {
-                try writeRow(table, row_i, &write_stream);
+                try writeColumnMetadata(table, column, write_stream);
             }
         }
     }
-
-    try writeFile(out.items, table.name.slice());
 }
 
 fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) !void {
@@ -118,12 +96,35 @@ fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) 
     try write_stream.write(@tagName(column.datatype));
 
     switch (column.datatype) {
+        .reference => |value| {
+            try write_stream.objectField("reference_table");
+            try write_stream.write(value.table.name.slice());
+            try write_stream.objectField("reference_column");
+            try write_stream.write(value.column.name.slice());
+            try write_stream.objectField("reference_default");
+            try write_stream.write(value.default);
+        },
         .subtable => {
             const subtable = column.datatype.subtable.table;
             try write_stream.objectField("subtable_name");
             try write_stream.write(subtable.name.slice());
         },
         else => {},
+    }
+}
+
+fn writeTableData(table: t.Table, write_stream: anytype) !void {
+    try write_stream.beginObject();
+    defer write_stream.endObject() catch unreachable;
+
+    try write_stream.objectField("name");
+    try write_stream.write(table.name.slice());
+
+    try write_stream.objectField("rows");
+    try write_stream.beginArray();
+    defer write_stream.endArray() catch unreachable;
+    for (0..table.row_count) |row_i| {
+        try writeRow(table, row_i, write_stream);
     }
 }
 
@@ -148,8 +149,6 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
             },
             .subtable => {
                 try write_stream.write("subtable");
-                // const subtable = column.datatype.subtable.table;
-                // try write_stream.write(i_row);
             },
             // else => {
             //     try write_stream.write("unknown");
