@@ -18,6 +18,32 @@ fn writeFile(data: anytype, name: []const u8) !void {
     _ = bytes_written; // autofix
 }
 
+fn writeProject(tables: []const t.Table, allocator: std.mem.Allocator) !void {
+    var out = std.ArrayList(u8).init(allocator);
+    defer out.deinit();
+    var write_stream = writeStream(out.writer(), .{ .whitespace = .indent_2 });
+    defer write_stream.deinit();
+
+    {
+        try write_stream.beginObject();
+        defer write_stream.endObject() catch unreachable;
+        {
+            try write_stream.objectField("tables");
+
+            try write_stream.beginArray();
+            defer write_stream.endArray() catch unreachable;
+            for (tables) |table_ptr| {
+                // try write_stream.objectField(table_ptr.name.slice());
+                try write_stream.beginObject();
+                defer write_stream.endObject() catch unreachable;
+                try write_stream.objectField("name");
+                try write_stream.write(table_ptr.name.slice());
+            }
+        }
+    }
+    try writeFile(out.items, "ludo_db.project.json");
+}
+
 fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
     var out = std.ArrayList(u8).init(allocator);
     defer out.deinit();
@@ -165,4 +191,6 @@ pub fn exportProject(tables: []const t.Table) !void {
     for (tables) |table| {
         try writeTable(table, gpa);
     }
+
+    try writeProject(tables, gpa);
 }
