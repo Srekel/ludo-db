@@ -154,6 +154,10 @@ pub fn main() !void {
         if (zgui.button("Save", .{})) {
             save.exportProject((&table_category)[0..1]) catch unreachable;
         }
+        if (zgui.button("Load", .{})) {
+            var tables = std.ArrayList(t.Table).initCapacity(gpa, 128) catch unreachable;
+            save.loadProject(&tables, gpa) catch unreachable;
+        }
 
         if (zgui.begin("My window", .{})) {
             doTable(&table_category, 0, .{}, null);

@@ -1,6 +1,20 @@
 const std = @import("std");
 const t = @import("table.zig");
 
+fn loadFile(path: []const u8, buffer: []u8) ![]const u8 {
+    const data = try std.fs.cwd().readFile(path, buffer);
+    return data;
+}
+
+pub fn loadProject(tables: *std.ArrayList(t.Table), allocator: std.mem.Allocator) !void {
+    _ = tables; // autofix
+    var buffer: [1024 * 4]u8 = undefined;
+    const project_json = try loadFile("ludodb.project.json", &buffer);
+
+    const jsonval = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
+    defer jsonval.deinit();
+}
+
 pub const writeStream = std.json.writeStream;
 
 fn writeFile(data: anytype, name: []const u8) !void {
@@ -41,7 +55,7 @@ fn writeProject(tables: []const t.Table, allocator: std.mem.Allocator) !void {
             }
         }
     }
-    try writeFile(out.items, "ludo_db.project.json");
+    try writeFile(out.items, "ludo_db.project");
 }
 
 fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
