@@ -155,7 +155,7 @@ pub fn main() !void {
             save.exportProject((&table_category)[0..1]) catch unreachable;
         }
         if (zgui.button("Load", .{})) {
-            var tables = std.ArrayList(t.Table).initCapacity(gpa, 128) catch unreachable;
+            var tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
             save.loadProject(&tables, gpa) catch unreachable;
         }
 

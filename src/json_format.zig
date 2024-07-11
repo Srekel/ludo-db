@@ -1,19 +1,79 @@
 const std = @import("std");
 const t = @import("table.zig");
 
-fn loadFile(path: []const u8, buffer: []u8) ![]const u8 {
-    const data = try std.fs.cwd().readFile(path, buffer);
+// ██╗      ██████╗  █████╗ ██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║
+// ██║     ██║   ██║██╔══██║██║  ██║
+// ███████╗╚██████╔╝██║  ██║██████╔╝
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
+
+fn loadFile(path: []const u8, buf: []u8) ![]const u8 {
+    const data = try std.fs.cwd().readFile(path, buf);
     return data;
 }
 
-pub fn loadProject(tables: *std.ArrayList(t.Table), allocator: std.mem.Allocator) !void {
-    _ = tables; // autofix
-    var buffer: [1024 * 4]u8 = undefined;
-    const project_json = try loadFile("ludodb.project.json", &buffer);
+pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !void {
+    var buf: [1024 * 4]u8 = undefined;
+    const project_json = try loadFile("ludo_db.project.json", &buf);
 
-    const jsonval = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
-    defer jsonval.deinit();
+    const j_root = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
+    defer j_root.deinit();
+
+    const j_tables = j_root.value.object.get("tables").?;
+    for (j_tables.array.items) |j_table| {
+        const j_name = j_table.object.get("name");
+        const name = j_name.?.string;
+        const table = try loadTable(name, allocator);
+        tables.appendAssumeCapacity(table);
+    }
 }
+
+fn loadTable(name: []const u8, allocator: std.mem.Allocator) !*t.Table {
+    var buf: [1024 * 4]u8 = undefined;
+    const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
+    const table_json = try loadFile(filepath, &buf);
+
+    const j_root = try std.json.parseFromSlice(std.json.Value, allocator, table_json, .{});
+    defer j_root.deinit();
+
+    var main_table: ?*t.Table = null;
+
+    const j_metadatas = j_root.value.object.get("table_metadatas").?;
+    for (j_metadatas.array.items) |j_table_metadata| {
+        const j_name = j_table_metadata.object.get("name");
+        var table = allocator.create(t.Table) catch unreachable;
+        table.* = t.Table{
+            .name = std.BoundedArray(u8, 128).fromSlice(j_name.?.string) catch unreachable,
+            .allocator = allocator,
+            .subtables = std.ArrayList(t.Table).initCapacity(allocator, 4) catch unreachable,
+        };
+
+        if (main_table == null) {
+            main_table = table;
+        }
+
+        const j_column_metadata = j_table_metadata.object.get("column_metadata").?;
+        for (j_column_metadata.array.items) |j_cmd| {
+            const column: t.Column = .{
+                .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
+                .owner_table = table,
+                .visible = j_cmd.object.get("visible").?.bool,
+                .datatype = undefined, // fill out in pass 2
+            };
+            table.columns.append(column) catch unreachable;
+        }
+    }
+
+    return main_table.?;
+}
+
+// ███████╗ █████╗ ██╗   ██╗███████╗
+// ██╔════╝██╔══██╗██║   ██║██╔════╝
+// ███████╗███████║██║   ██║█████╗
+// ╚════██║██╔══██║╚██╗ ██╔╝██╔══╝
+// ███████║██║  ██║ ╚████╔╝ ███████╗
+// ╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝
 
 pub const writeStream = std.json.writeStream;
 
