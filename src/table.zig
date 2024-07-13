@@ -138,7 +138,7 @@ pub const Table = struct {
     allocator: std.mem.Allocator,
     columns: std.BoundedArray(Column, 32) = .{},
     row_count: u32 = 0,
-    subtables: std.ArrayList(Table),
+    subtables: std.ArrayList(*Table),
 
     pub fn addRow(self: *Table) void {
         self.row_count += 1;

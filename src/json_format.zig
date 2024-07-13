@@ -55,7 +55,7 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
         table.* = t.Table{
             .name = std.BoundedArray(u8, 128).fromSlice(j_name.?.string) catch unreachable,
             .allocator = allocator,
-            .subtables = std.ArrayList(t.Table).initCapacity(allocator, 4) catch unreachable,
+            .subtables = std.ArrayList(*t.Table).initCapacity(allocator, 4) catch unreachable,
         };
 
         tables.appendAssumeCapacity(table);
@@ -66,12 +66,13 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
 
         const j_column_metadata = j_table_metadata.object.get("column_metadata").?;
         for (j_column_metadata.array.items) |j_cmd| {
-            const column: t.Column = .{
+            var column: t.Column = .{
                 .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
                 .owner_table = table,
                 .visible = j_cmd.object.get("visible").?.bool,
                 .datatype = undefined, // fill out in phase 2
             };
+            column.data.resize(@intCast(j_table_metadata.object.get("row_count").?.integer)) catch unreachable;
             table.columns.append(column) catch unreachable;
         }
     }
@@ -119,9 +120,13 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                     .table = subtable,
                 } };
             }
+            if (std.mem.eql(u8, datatype, "text")) {
+                column.datatype = .{ .text = .{} };
+            }
         }
     }
 
+    // Add rows
     const j_table_datas = j_root.value.object.get("table_datas").?;
     for (j_table_datas.array.items) |j_table_metadata| {
         const j_name = j_table_metadata.object.get("name");
