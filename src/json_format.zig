@@ -21,11 +21,20 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     defer j_root.deinit();
 
     const j_tables = j_root.value.object.get("tables").?;
+
+    // Phase 1, create barebones tables
     for (j_tables.array.items) |j_table| {
         const j_name = j_table.object.get("name");
         const name = j_name.?.string;
         const table = try loadTable(name, allocator);
         tables.appendAssumeCapacity(table);
+    }
+
+    // Phase 2, link tables
+    for (j_tables.array.items) |j_table| {
+        const j_name = j_table.object.get("name");
+        const name = j_name.?.string;
+        try finalizeTable(name, tables, allocator);
     }
 }
 
@@ -66,6 +75,44 @@ fn loadTable(name: []const u8, allocator: std.mem.Allocator) !*t.Table {
     }
 
     return main_table.?;
+}
+
+fn getTable(name: []const u8, tables: *std.ArrayList(*t.Table)) *t.Table {
+    for (tables.items) |table| {
+        if (std.mem.eql(u8, name, table.name.slice())) {
+            return table;
+        }
+    }
+    unreachable;
+}
+
+fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !void {
+    var buf: [1024 * 4]u8 = undefined;
+    const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
+    const table_json = try loadFile(filepath, &buf);
+
+    const j_root = try std.json.parseFromSlice(std.json.Value, allocator, table_json, .{});
+    defer j_root.deinit();
+
+    const j_metadatas = j_root.value.object.get("table_metadatas").?;
+    for (j_metadatas.array.items) |j_table_metadata| {
+        const j_name = j_table_metadata.object.get("name");
+        const table_name = j_name.?.string;
+        const table = getTable(table_name, tables);
+
+        const j_column_metadata = j_table_metadata.object.get("column_metadata").?;
+        for (j_column_metadata.array.items) |j_cmd| {
+            const datatype = j_cmd.object.get("datatype").?.string;
+            if (std.mem.eql(u8, datatype, "reference")) {}
+            const column: t.Column = .{
+                .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
+                .owner_table = table,
+                .visible = j_cmd.object.get("visible").?.bool,
+                .datatype = undefined, // fill out in pass 2
+            };
+            table.columns.append(column) catch unreachable;
+        }
+    }
 }
 
 // ███████╗ █████╗ ██╗   ██╗███████╗
