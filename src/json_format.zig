@@ -56,6 +56,7 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
             .name = std.BoundedArray(u8, 128).fromSlice(j_name.?.string) catch unreachable,
             .allocator = allocator,
             .subtables = std.ArrayList(*t.Table).initCapacity(allocator, 4) catch unreachable,
+            .is_subtable = j_table_metadata.object.get("is_subtable").?.bool,
         };
 
         tables.appendAssumeCapacity(table);
@@ -66,13 +67,12 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
 
         const j_column_metadata = j_table_metadata.object.get("column_metadata").?;
         for (j_column_metadata.array.items) |j_cmd| {
-            var column: t.Column = .{
+            const column: t.Column = .{
                 .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
                 .owner_table = table,
                 .visible = j_cmd.object.get("visible").?.bool,
                 .datatype = undefined, // fill out in phase 2
             };
-            column.data.resize(@intCast(j_table_metadata.object.get("row_count").?.integer)) catch unreachable;
             table.columns.append(column) catch unreachable;
         }
     }
@@ -124,6 +124,12 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 column.datatype = .{ .text = .{} };
             }
         }
+
+        const row_count = j_table_metadata.object.get("row_count").?.integer;
+        for (0..@intCast(row_count)) |i_row| {
+            _ = i_row; // autofix
+            table.addRow();
+        }
     }
 
     // Add rows
@@ -136,12 +142,22 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
         const j_rows = j_table_metadata.object.get("rows").?;
         for (j_rows.array.items, 0..) |j_row, i_row| {
             for (table.columns.slice()) |*column| {
+                const j_celldata = j_row.object.get(column.name.slice());
+                const celldata = &column.data.slice()[i_row];
                 switch (column.datatype) {
                     .text => {
-                        const text_src = j_row.object.get(column.name.slice()).?.string;
-                        column.data.slice()[i_row] = allocator.dupeZ(u8, text_src) catch unreachable;
+                        const text_src = j_celldata.?.string;
+                        const text_len = 32; // TODO
+                        var text_dst = allocator.alloc(u8, text_len) catch unreachable;
+                        @memcpy(text_dst[0..text_src.len], text_src);
+                        text_dst[text_src.len] = 0;
+                        celldata.* = text_dst;
                     },
-                    .reference => {},
+                    .reference => {
+                        const row = j_celldata.?.integer;
+                        const celldata_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata.*));
+                        celldata_row.* = @intCast(row);
+                    },
                     else => {},
                 }
                 // j_row.object.get(column.name)
@@ -189,7 +205,9 @@ fn writeProject(tables: []const *t.Table, allocator: std.mem.Allocator) !void {
             try write_stream.beginArray();
             defer write_stream.endArray() catch unreachable;
             for (tables) |table_ptr| {
-                // try write_stream.objectField(table_ptr.name.slice());
+                if (table_ptr.is_subtable) {
+                    continue;
+                }
                 try write_stream.beginObject();
                 defer write_stream.endObject() catch unreachable;
                 try write_stream.objectField("name");
@@ -250,6 +268,9 @@ fn writeTableMetadata(table: t.Table, write_stream: anytype) !void {
 
         try write_stream.objectField("row_count");
         try write_stream.write(table.row_count);
+
+        try write_stream.objectField("is_subtable");
+        try write_stream.write(table.is_subtable);
 
         {
             // Column metadata
@@ -345,6 +366,9 @@ pub fn exportProject(tables: []const *t.Table) !void {
     const gpa = gpa_state.allocator();
 
     for (tables) |table| {
+        if (table.is_subtable) {
+            continue;
+        }
         try writeTable(table.*, gpa);
     }
 

@@ -72,73 +72,6 @@ pub fn main() !void {
 
     zgui.getStyle().scaleAllSizes(scale_factor);
 
-    // var table_category: t.Table = .{
-    //     .name = std.BoundedArray(u8, 128).fromSlice("Categories") catch unreachable,
-    //     .allocator = gpa,
-    //     .subtables = std.ArrayList(t.Table).initCapacity(gpa, 4) catch unreachable,
-    // };
-    // {
-    //     const column: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("category") catch unreachable,
-    //         .owner_table = &table_category,
-    //         // .visible = false,
-    //         .datatype = .{ .text = .{} },
-    //     };
-    //     table_category.columns.appendAssumeCapacity(column);
-    // }
-    // {
-    //     const column: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("parent") catch unreachable,
-    //         .owner_table = &table_category,
-    //         .visible = false,
-    //         .datatype = .{ .reference = .{
-    //             .table = &table_category,
-    //             .column = &table_category.columns.slice()[0],
-    //         } },
-    //     };
-    //     table_category.columns.appendAssumeCapacity(column);
-    // }
-    // {
-    //     const subtable = table_category.subtables.addOneAssumeCapacity();
-    //     subtable.* = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
-    //         .allocator = gpa,
-    //         .subtables = std.ArrayList(t.Table).init(gpa),
-    //     };
-    //     const column: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
-    //         .owner_table = &table_category,
-    //         .datatype = .{ .subtable = .{
-    //             .table = subtable,
-    //         } },
-    //     };
-    //     table_category.columns.appendAssumeCapacity(column);
-    //     const subcolumn_fk: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
-    //         .owner_table = subtable,
-    //         .visible = false,
-    //         .datatype = .{ .reference = .{
-    //             .table = &table_category,
-    //             .column = &table_category.columns.slice()[0],
-    //         } },
-    //     };
-    //     const subcolumn_parent: t.Column = .{
-    //         .name = std.BoundedArray(u8, 128).fromSlice("Parent") catch unreachable,
-    //         .owner_table = subtable,
-    //         .datatype = .{ .reference = .{
-    //             .table = &table_category,
-    //             .column = &table_category.columns.slice()[0],
-    //         } },
-    //     };
-    //     subtable.columns.appendAssumeCapacity(subcolumn_fk);
-    //     subtable.columns.appendAssumeCapacity(subcolumn_parent);
-    // }
-
-    // table_category.addRow();
-    // table_category.addRow();
-    // table_category.addRow();
-    // table_category.addRow();
-
     var project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
@@ -158,18 +91,16 @@ pub fn main() !void {
         }
         if (zgui.button("Load", .{})) {
             project_tables.resize(0) catch unreachable;
-            // var tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
             save.loadProject(&project_tables, gpa) catch unreachable;
-            // table_category = tables.items[0].*;
         }
 
         for (project_tables.items) |table| {
-            if (zgui.begin(@ptrCast(table.name.slice()), .{})) {
+            if (!table.is_subtable and zgui.begin(@ptrCast(table.name.slice()), .{})) {
                 doTable(table, 0, .{}, null);
                 zgui.end();
             }
         }
-        zgui.showDemoWindow(null);
+        // zgui.showDemoWindow(null);
 
         const swapchain_texv = gctx.swapchain.getCurrentTextureView();
         defer swapchain_texv.release();

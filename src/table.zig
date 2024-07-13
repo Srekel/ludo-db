@@ -139,6 +139,7 @@ pub const Table = struct {
     columns: std.BoundedArray(Column, 32) = .{},
     row_count: u32 = 0,
     subtables: std.ArrayList(*Table),
+    is_subtable: bool = false,
 
     pub fn addRow(self: *Table) void {
         self.row_count += 1;
