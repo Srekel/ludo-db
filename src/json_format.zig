@@ -26,8 +26,8 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     for (j_tables.array.items) |j_table| {
         const j_name = j_table.object.get("name");
         const name = j_name.?.string;
-        const table = try loadTable(name, allocator);
-        tables.appendAssumeCapacity(table);
+        const table = try loadTable(name, tables, allocator);
+        _ = table; // autofix
     }
 
     // Phase 2, link tables
@@ -38,7 +38,7 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     }
 }
 
-fn loadTable(name: []const u8, allocator: std.mem.Allocator) !*t.Table {
+fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !*t.Table {
     var buf: [1024 * 4]u8 = undefined;
     const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
     const table_json = try loadFile(filepath, &buf);
@@ -57,6 +57,8 @@ fn loadTable(name: []const u8, allocator: std.mem.Allocator) !*t.Table {
             .allocator = allocator,
             .subtables = std.ArrayList(t.Table).initCapacity(allocator, 4) catch unreachable,
         };
+
+        tables.appendAssumeCapacity(table);
 
         if (main_table == null) {
             main_table = table;
@@ -105,14 +107,14 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
             const column = table.getColumn(j_cmd.object.get("name").?.string).?;
             const datatype = j_cmd.object.get("datatype").?.string;
             if (std.mem.eql(u8, datatype, "reference")) {
-                const ref_table = getTable(j_cmd.object.get("subtable").?.string, tables);
+                const ref_table = getTable(j_cmd.object.get("reference_table").?.string, tables);
                 column.datatype = .{ .reference = .{
                     .table = ref_table,
                     .column = ref_table.getColumn(j_cmd.object.get("reference_column").?.string).?,
                 } };
             }
             if (std.mem.eql(u8, datatype, "subtable")) {
-                const subtable = getTable(j_cmd.object.get("subtable").?.string, tables);
+                const subtable = getTable(j_cmd.object.get("subtable_name").?.string, tables);
                 column.datatype = .{ .subtable = .{
                     .table = subtable,
                 } };
@@ -167,7 +169,7 @@ fn writeFile(data: anytype, name: []const u8) !void {
     _ = bytes_written; // autofix
 }
 
-fn writeProject(tables: []const t.Table, allocator: std.mem.Allocator) !void {
+fn writeProject(tables: []const *t.Table, allocator: std.mem.Allocator) !void {
     var out = std.ArrayList(u8).init(allocator);
     defer out.deinit();
     var write_stream = writeStream(out.writer(), .{ .whitespace = .indent_2 });
@@ -332,13 +334,13 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
     }
 }
 
-pub fn exportProject(tables: []const t.Table) !void {
+pub fn exportProject(tables: []const *t.Table) !void {
     var gpa_state = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa_state.deinit();
     const gpa = gpa_state.allocator();
 
     for (tables) |table| {
-        try writeTable(table, gpa);
+        try writeTable(table.*, gpa);
     }
 
     try writeProject(tables, gpa);
