@@ -68,7 +68,7 @@ fn loadTable(name: []const u8, allocator: std.mem.Allocator) !*t.Table {
                 .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
                 .owner_table = table,
                 .visible = j_cmd.object.get("visible").?.bool,
-                .datatype = undefined, // fill out in pass 2
+                .datatype = undefined, // fill out in phase 2
             };
             table.columns.append(column) catch unreachable;
         }
@@ -102,15 +102,43 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
 
         const j_column_metadata = j_table_metadata.object.get("column_metadata").?;
         for (j_column_metadata.array.items) |j_cmd| {
+            const column = table.getColumn(j_cmd.object.get("name").?.string).?;
             const datatype = j_cmd.object.get("datatype").?.string;
-            if (std.mem.eql(u8, datatype, "reference")) {}
-            const column: t.Column = .{
-                .name = std.BoundedArray(u8, 128).fromSlice(j_cmd.object.get("name").?.string) catch unreachable,
-                .owner_table = table,
-                .visible = j_cmd.object.get("visible").?.bool,
-                .datatype = undefined, // fill out in pass 2
-            };
-            table.columns.append(column) catch unreachable;
+            if (std.mem.eql(u8, datatype, "reference")) {
+                const ref_table = getTable(j_cmd.object.get("subtable").?.string, tables);
+                column.datatype = .{ .reference = .{
+                    .table = ref_table,
+                    .column = ref_table.getColumn(j_cmd.object.get("reference_column").?.string).?,
+                } };
+            }
+            if (std.mem.eql(u8, datatype, "subtable")) {
+                const subtable = getTable(j_cmd.object.get("subtable").?.string, tables);
+                column.datatype = .{ .subtable = .{
+                    .table = subtable,
+                } };
+            }
+        }
+    }
+
+    const j_table_datas = j_root.value.object.get("table_datas").?;
+    for (j_table_datas.array.items) |j_table_metadata| {
+        const j_name = j_table_metadata.object.get("name");
+        const table_name = j_name.?.string;
+        const table = getTable(table_name, tables);
+
+        const j_rows = j_table_metadata.object.get("rows").?;
+        for (j_rows.array.items, 0..) |j_row, i_row| {
+            for (table.columns.slice()) |*column| {
+                switch (column.datatype) {
+                    .text => {
+                        const text_src = j_row.object.get(column.name.slice()).?.string;
+                        column.data.slice()[i_row] = allocator.dupeZ(u8, text_src) catch unreachable;
+                    },
+                    .reference => {},
+                    else => {},
+                }
+                // j_row.object.get(column.name)
+            }
         }
     }
 }
@@ -279,7 +307,7 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
     try write_stream.beginObject();
     defer write_stream.endObject() catch unreachable;
 
-    try write_stream.objectField("index");
+    try write_stream.objectField("__index");
     try write_stream.write(row);
 
     for (table.columns.slice()) |column| {
