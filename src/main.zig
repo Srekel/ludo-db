@@ -73,6 +73,9 @@ pub fn main() !void {
     zgui.getStyle().scaleAllSizes(scale_factor);
 
     var project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
+    save.loadProject(&project_tables, gpa) catch unreachable;
+
+    var show_demo = false;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -83,15 +86,23 @@ pub fn main() !void {
         );
 
         // Set the starting window position and size to custom values
-        zgui.setNextWindowPos(.{ .x = 20.0, .y = 20.0, .cond = .first_use_ever });
-        zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
-
-        if (zgui.button("Save", .{})) {
-            save.exportProject(project_tables.items) catch unreachable;
-        }
-        if (zgui.button("Load", .{})) {
-            project_tables.resize(0) catch unreachable;
-            save.loadProject(&project_tables, gpa) catch unreachable;
+        // zgui.setNextWindowPos(.{ .x = 20.0, .y = 20.0, .cond = .first_use_ever });
+        // zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
+        if (zgui.beginMainMenuBar()) {
+            if (zgui.beginMenu("Save", true)) {
+                save.exportProject(project_tables.items) catch unreachable;
+                zgui.endMenu();
+            }
+            if (zgui.beginMenu("Load", true)) {
+                project_tables.resize(0) catch unreachable;
+                save.loadProject(&project_tables, gpa) catch unreachable;
+                zgui.endMenu();
+            }
+            if (zgui.beginMenu("(imgui demo)", true)) {
+                show_demo = !show_demo; // TODO
+                zgui.endMenu();
+            }
+            zgui.endMainMenuBar();
         }
 
         for (project_tables.items) |table| {
@@ -100,7 +111,10 @@ pub fn main() !void {
                 zgui.end();
             }
         }
-        // zgui.showDemoWindow(null);
+
+        if (show_demo) {
+            zgui.showDemoWindow(null);
+        }
 
         const swapchain_texv = gctx.swapchain.getCurrentTextureView();
         defer swapchain_texv.release();
