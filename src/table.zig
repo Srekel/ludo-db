@@ -131,6 +131,31 @@ pub const Column = struct {
     pub fn getRowAs(self: *Column, row: usize, T: type) *T {
         return @alignCast(@ptrCast(self.data.buffer[row]));
     }
+    pub fn addRow(self: *Column, allocator: std.mem.Allocator) void {
+        switch (self.datatype) {
+            .text => |value| {
+                const string = allocator.allocSentinel(u8, value.text_len, 0) catch unreachable;
+                @memcpy(string[0..value.default.len], value.default);
+                string[value.default.len] = @intCast(50 + self.data.len);
+                string[value.default.len + 1] = 0;
+                self.data.appendAssumeCapacity(string);
+            },
+            .reference => |value| {
+                const i_row = allocator.create(u32) catch unreachable;
+                i_row.* = value.default;
+                const i_row_bytes = std.mem.asBytes(i_row);
+                self.data.appendAssumeCapacity(i_row_bytes);
+            },
+            .subtable => |value| {
+                _ = value;
+                const is_active = allocator.create(bool) catch unreachable;
+                is_active.* = false;
+                const is_active_bytes = std.mem.asBytes(is_active);
+                self.data.appendAssumeCapacity(is_active_bytes);
+            },
+            // else => {},
+        }
+    }
 };
 
 pub const Table = struct {
@@ -144,29 +169,7 @@ pub const Table = struct {
     pub fn addRow(self: *Table) void {
         self.row_count += 1;
         for (self.columns.slice()) |*column| {
-            switch (column.datatype) {
-                .text => |value| {
-                    const string = self.allocator.allocSentinel(u8, value.text_len, 0) catch unreachable;
-                    @memcpy(string[0..value.default.len], value.default);
-                    string[value.default.len] = @intCast(50 + self.row_count);
-                    string[value.default.len + 1] = 0;
-                    column.data.appendAssumeCapacity(string);
-                },
-                .reference => |value| {
-                    const i_row = self.allocator.create(u32) catch unreachable;
-                    i_row.* = value.default;
-                    const i_row_bytes = std.mem.asBytes(i_row);
-                    column.data.appendAssumeCapacity(i_row_bytes);
-                },
-                .subtable => |value| {
-                    _ = value;
-                    const is_active = self.allocator.create(bool) catch unreachable;
-                    is_active.* = false;
-                    const is_active_bytes = std.mem.asBytes(is_active);
-                    column.data.appendAssumeCapacity(is_active_bytes);
-                },
-                // else => {},
-            }
+            column.addRow(self.allocator);
         }
     }
 

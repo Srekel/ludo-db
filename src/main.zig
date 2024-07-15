@@ -78,6 +78,7 @@ pub fn main() !void {
     save.loadProject(&project_tables, gpa) catch unreachable;
 
     var show_demo = false;
+    var last_focused_window: ?*t.Table = null;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -104,12 +105,70 @@ pub fn main() !void {
                 show_demo = !show_demo; // TODO
                 zgui.endMenu();
             }
+            if (zgui.beginMenu("[+] New Table", true)) {
+                const table: *t.Table = gpa.create(t.Table) catch unreachable;
+                table.* = .{
+                    .name = std.BoundedArray(u8, 128).fromSlice("unnamed") catch unreachable,
+                    .allocator = gpa,
+                    .subtables = std.ArrayList(*t.Table).initCapacity(gpa, 4) catch unreachable,
+                    .is_subtable = false,
+                };
+                {
+                    const column: t.Column = .{
+                        .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
+                        .owner_table = table,
+                        .datatype = .{ .text = .{} },
+                    };
+                    table.columns.appendAssumeCapacity(column);
+                }
+                project_tables.appendAssumeCapacity(table);
+                zgui.endMenu();
+            }
             zgui.endMainMenuBar();
         }
 
         for (project_tables.items) |table| {
-            if (!table.is_subtable and zgui.begin(@ptrCast(table.name.slice()), .{})) {
-                doTable(table, 0, .{}, null);
+            if (!table.is_subtable) {
+                if (zgui.begin(@ptrCast(table.name.slice()), .{})) {
+                    if (zgui.isWindowFocused(.{})) {
+                        last_focused_window = table;
+                    }
+                    if (last_focused_window == table and zgui.beginMainMenuBar()) {
+                        if (zgui.beginMenu(@ptrCast(table.name.slice()), true)) {
+                            if (zgui.menuItem("Add row", .{})) {
+                                table.addRow();
+                            }
+                            if (zgui.menuItem("Add text column", .{})) {
+                                var column: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
+                                    .owner_table = table,
+                                    .datatype = .{ .text = .{} },
+                                };
+                                for (0..table.row_count) |_| {
+                                    column.addRow(table.allocator);
+                                }
+                                table.columns.appendAssumeCapacity(column);
+                            }
+                            if (zgui.menuItem("Add reference column", .{})) {
+                                var column: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
+                                    .owner_table = table,
+                                    .datatype = .{ .reference = .{
+                                        .table = project_tables.items[0],
+                                        .column = &project_tables.items[0].columns.buffer[0],
+                                    } },
+                                };
+                                for (0..table.row_count) |_| {
+                                    column.addRow(table.allocator);
+                                }
+                                table.columns.appendAssumeCapacity(column);
+                            }
+                            zgui.endMenu();
+                        }
+                        zgui.endMainMenuBar();
+                    }
+                    doTable(table, 0, .{}, null);
+                }
                 zgui.end();
             }
         }
@@ -153,6 +212,9 @@ fn doTable(
     filter: Filter,
     parent_row: ?usize,
 ) void {
+    if (table.columns.slice().len == 0) {
+        return;
+    }
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.visibleRowCount() + if (show_row) 1 else 0,
         .flags = .{
