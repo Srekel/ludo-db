@@ -1,0 +1,124 @@
+{
+  "table_metadatas": [
+    {
+      "name": "Categories",
+      "row_count": 4,
+      "is_subtable": false,
+      "column_metadata": [
+        {
+          "name": "category",
+          "visible": true,
+          "datatype": "text"
+        },
+        {
+          "name": "parent",
+          "visible": true,
+          "datatype": "reference",
+          "reference_table": "Categories",
+          "reference_column": "category",
+          "reference_default": 0
+        },
+        {
+          "name": "parents",
+          "visible": true,
+          "datatype": "subtable",
+          "subtable_name": "Categories::parents"
+        }
+      ]
+    },
+    {
+      "name": "Categories::parents",
+      "row_count": 7,
+      "is_subtable": true,
+      "column_metadata": [
+        {
+          "name": "FK",
+          "visible": false,
+          "datatype": "reference",
+          "reference_table": "Categories",
+          "reference_column": "category",
+          "reference_default": 0
+        },
+        {
+          "name": "Parent",
+          "visible": true,
+          "datatype": "reference",
+          "reference_table": "Categories",
+          "reference_column": "category",
+          "reference_default": 0
+        }
+      ]
+    }
+  ],
+  "table_datas": [
+    {
+      "name": "Categories",
+      "rows": [
+        {
+          "__index": 0,
+          "category": "empty3",
+          "parent": 0,
+          "parents": "subtable"
+        },
+        {
+          "__index": 1,
+          "category": "empty4",
+          "parent": 0,
+          "parents": "subtable"
+        },
+        {
+          "__index": 2,
+          "category": "empty5dfdfddd",
+          "parent": 1,
+          "parents": "subtable"
+        },
+        {
+          "__index": 3,
+          "category": "empty6dfssss",
+          "parent": 2,
+          "parents": "subtable"
+        }
+      ]
+    },
+    {
+      "name": "Categories::parents",
+      "rows": [
+        {
+          "__index": 0,
+          "FK": 0,
+          "Parent": 0
+        },
+        {
+          "__index": 1,
+          "FK": 0,
+          "Parent": 3
+        },
+        {
+          "__index": 2,
+          "FK": 0,
+          "Parent": 1
+        },
+        {
+          "__index": 3,
+          "FK": 3,
+          "Parent": 3
+        },
+        {
+          "__index": 4,
+          "FK": 0,
+          "Parent": 0
+        },
+        {
+          "__index": 5,
+          "FK": 0,
+          "Parent": 0
+        },
+        {
+          "__index": 6,
+          "FK": 1,
+          "Parent": 3
+        }
+      ]
+    }
+  ]
+}

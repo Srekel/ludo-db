@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = std.fs;
 
 const zglfw = @import("zglfw");
 const zgpu = @import("zgpu");
@@ -72,6 +73,7 @@ pub fn main() !void {
 
     zgui.getStyle().scaleAllSizes(scale_factor);
 
+    try initProject(gpa);
     var project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
     save.loadProject(&project_tables, gpa) catch unreachable;
 
@@ -250,4 +252,18 @@ fn doTable(
             zgui.endTable();
         }
     }
+}
+
+pub fn initProject(allocator: std.mem.Allocator) !void {
+    var buf: [1024 * 4]u8 = undefined;
+    const project_json = try std.fs.cwd().readFile("ludo_db.config.json", &buf);
+
+    const j_root = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
+    defer j_root.deinit();
+
+    const folder_rel_path = j_root.value.object.get("project_folder").?.string;
+    var dir = try std.fs.cwd().openDir(folder_rel_path, .{});
+    defer dir.close();
+
+    try dir.setAsCwd();
 }
