@@ -91,7 +91,7 @@ pub const SubTable = struct {
 
 pub const ColumnType = union(enum) {
     text: struct {
-        default: [:0]const u8 = "empty",
+        default: [:0]const u8 = "",
         text_len: u32 = 32,
     },
     reference: ColumnReference,
@@ -136,8 +136,8 @@ pub const Column = struct {
             .text => |value| {
                 const string = allocator.allocSentinel(u8, value.text_len, 0) catch unreachable;
                 @memcpy(string[0..value.default.len], value.default);
-                string[value.default.len] = @intCast(50 + self.data.len);
-                string[value.default.len + 1] = 0;
+                // string[value.default.len] = @intCast(50 + self.data.len);
+                string[value.default.len] = 0;
                 self.data.appendAssumeCapacity(string);
             },
             .reference => |value| {
@@ -165,6 +165,7 @@ pub const Table = struct {
     row_count: u32 = 0,
     subtables: std.ArrayList(*Table),
     is_subtable: bool = false,
+    uid: u32 = 0,
 
     pub fn addRow(self: *Table) void {
         self.row_count += 1;

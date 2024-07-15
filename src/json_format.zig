@@ -38,6 +38,8 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     }
 }
 
+var fallback_uid: u32 = 0;
+
 fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !*t.Table {
     var buf: [1024 * 4]u8 = undefined;
     const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
@@ -52,11 +54,14 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
     for (j_metadatas.array.items) |j_table_metadata| {
         const j_name = j_table_metadata.object.get("name");
         var table = allocator.create(t.Table) catch unreachable;
+        fallback_uid += 1;
+        const uid: u32 = if (j_table_metadata.object.get("uid")) |table_uid| @intCast(table_uid.integer) else fallback_uid;
         table.* = t.Table{
             .name = std.BoundedArray(u8, 128).fromSlice(j_name.?.string) catch unreachable,
             .allocator = allocator,
             .subtables = std.ArrayList(*t.Table).initCapacity(allocator, 4) catch unreachable,
             .is_subtable = j_table_metadata.object.get("is_subtable").?.bool,
+            .uid = uid,
         };
 
         tables.appendAssumeCapacity(table);
@@ -265,6 +270,9 @@ fn writeTableMetadata(table: t.Table, write_stream: anytype) !void {
 
         try write_stream.objectField("name");
         try write_stream.write(table.name.slice());
+
+        try write_stream.objectField("uid");
+        try write_stream.write(table.uid);
 
         try write_stream.objectField("row_count");
         try write_stream.write(table.row_count);

@@ -77,8 +77,14 @@ pub fn main() !void {
     var project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
     save.loadProject(&project_tables, gpa) catch unreachable;
 
+    var window_uid: u32 = 0;
+    for (project_tables.items) |table| {
+        window_uid = @max(window_uid, table.uid) + 1;
+    }
+
     var show_demo = false;
     var last_focused_window: ?*t.Table = null;
+    var renaming = false;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -106,9 +112,24 @@ pub fn main() !void {
                 zgui.endMenu();
             }
             if (zgui.beginMenu("[+] New Table", true)) {
+                var name_index = project_tables.items.len;
+                var buf: [1024 * 4]u8 = undefined;
+                var table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
+                while (true) {
+                    for (project_tables.items) |table_tmp| {
+                        if (std.mem.eql(u8, table_tmp.name.slice(), table_name)) {
+                            name_index += 1;
+                            table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
+                            break;
+                        }
+                    } else {
+                        break;
+                    }
+                }
+
                 const table: *t.Table = gpa.create(t.Table) catch unreachable;
                 table.* = .{
-                    .name = std.BoundedArray(u8, 128).fromSlice("unnamed") catch unreachable,
+                    .name = std.BoundedArray(u8, 128).fromSlice(table_name) catch unreachable,
                     .allocator = gpa,
                     .subtables = std.ArrayList(*t.Table).initCapacity(gpa, 4) catch unreachable,
                     .is_subtable = false,
@@ -129,12 +150,17 @@ pub fn main() !void {
 
         for (project_tables.items) |table| {
             if (!table.is_subtable) {
-                if (zgui.begin(@ptrCast(table.name.slice()), .{})) {
+                var buf: [1024 * 4]u8 = undefined;
+                const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
+                if (zgui.begin(table_name, .{})) {
                     if (zgui.isWindowFocused(.{})) {
                         last_focused_window = table;
                     }
                     if (last_focused_window == table and zgui.beginMainMenuBar()) {
                         if (zgui.beginMenu(@ptrCast(table.name.slice()), true)) {
+                            if (zgui.menuItem("Rename", .{})) {
+                                renaming = true;
+                            }
                             if (zgui.menuItem("Add row", .{})) {
                                 table.addRow();
                             }
@@ -171,6 +197,24 @@ pub fn main() !void {
                 }
                 zgui.end();
             }
+        }
+
+        if (renaming) {
+            zgui.openPopup("Nametable?", .{});
+            renaming = false;
+        }
+        if (zgui.beginPopupModal("Nametable?", .{ .flags = .{ .always_auto_resize = true } })) {
+            _ = zgui.inputText(
+                "##renameinput",
+                .{ .buf = @ptrCast(&last_focused_window.?.name.buffer) },
+            );
+            last_focused_window.?.name.len = @intCast(std.mem.indexOfSentinel(u8, 0, @ptrCast(&last_focused_window.?.name.buffer)));
+            zgui.setItemDefaultFocus();
+
+            if (zgui.button("OK", .{})) {
+                zgui.closeCurrentPopup();
+            }
+            zgui.endPopup();
         }
 
         if (show_demo) {

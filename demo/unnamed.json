@@ -1,0 +1,28 @@
+{
+  "table_metadatas": [
+    {
+      "name": "unnamed",
+      "uid": 2,
+      "row_count": 1,
+      "is_subtable": false,
+      "column_metadata": [
+        {
+          "name": "id",
+          "visible": true,
+          "datatype": "text"
+        }
+      ]
+    }
+  ],
+  "table_datas": [
+    {
+      "name": "unnamed",
+      "rows": [
+        {
+          "__index": 0,
+          "id": "empty2"
+        }
+      ]
+    }
+  ]
+}
