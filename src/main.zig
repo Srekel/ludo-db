@@ -83,8 +83,7 @@ pub fn main() !void {
     }
 
     var show_demo = false;
-    var last_focused_window: ?*t.Table = null;
-    var renaming = false;
+    var renaming: ?*t.Table = null;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -152,17 +151,14 @@ pub fn main() !void {
             if (!table.is_subtable) {
                 var buf: [1024 * 4]u8 = undefined;
                 const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
-                if (zgui.begin(table_name, .{})) {
-                    if (zgui.isWindowFocused(.{})) {
-                        last_focused_window = table;
-                    }
-                    if (last_focused_window == table and zgui.beginMainMenuBar()) {
-                        if (zgui.beginMenu(@ptrCast(table.name.slice()), true)) {
+                if (zgui.begin(table_name, .{ .flags = .{
+                    .menu_bar = true,
+                    .horizontal_scrollbar = true,
+                } })) {
+                    if (zgui.beginMenuBar()) {
+                        if (zgui.beginMenu("Actions", true)) {
                             if (zgui.menuItem("Rename", .{})) {
-                                renaming = true;
-                            }
-                            if (zgui.menuItem("Add row", .{})) {
-                                table.addRow();
+                                renaming = table;
                             }
                             if (zgui.menuItem("Add text column", .{})) {
                                 var column: t.Column = .{
@@ -191,7 +187,7 @@ pub fn main() !void {
                             }
                             zgui.endMenu();
                         }
-                        zgui.endMainMenuBar();
+                        zgui.endMenuBar();
                     }
                     doTable(table, 0, .{}, null);
                 }
@@ -199,19 +195,19 @@ pub fn main() !void {
             }
         }
 
-        if (renaming) {
-            zgui.openPopup("Nametable?", .{});
-            renaming = false;
+        if (renaming != null) {
+            zgui.openPopup("Rename table", .{});
         }
-        if (zgui.beginPopupModal("Nametable?", .{ .flags = .{ .always_auto_resize = true } })) {
+        if (renaming != null and zgui.beginPopupModal("Rename table", .{ .flags = .{ .always_auto_resize = true } })) {
             _ = zgui.inputText(
                 "##renameinput",
-                .{ .buf = @ptrCast(&last_focused_window.?.name.buffer) },
+                .{ .buf = @ptrCast(&renaming.?.name.buffer) },
             );
-            last_focused_window.?.name.len = @intCast(std.mem.indexOfSentinel(u8, 0, @ptrCast(&last_focused_window.?.name.buffer)));
+            renaming.?.name.len = @intCast(std.mem.indexOfSentinel(u8, 0, @ptrCast(&renaming.?.name.buffer)));
             zgui.setItemDefaultFocus();
 
             if (zgui.button("OK", .{})) {
+                renaming = null;
                 zgui.closeCurrentPopup();
             }
             zgui.endPopup();
