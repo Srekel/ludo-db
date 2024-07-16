@@ -2,6 +2,7 @@
   "table_metadatas": [
     {
       "name": "Categories",
+      "uid": 1,
       "row_count": 4,
       "is_subtable": false,
       "column_metadata": [
@@ -28,6 +29,7 @@
     },
     {
       "name": "Categories::parents",
+      "uid": 2,
       "row_count": 7,
       "is_subtable": true,
       "column_metadata": [

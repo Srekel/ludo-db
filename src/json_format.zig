@@ -42,7 +42,7 @@ var fallback_uid: u32 = 0;
 
 fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !*t.Table {
     var buf: [1024 * 4]u8 = undefined;
-    const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
+    const filepath = std.fmt.bufPrintZ(&buf, "{s}.table.json", .{name}) catch unreachable;
     const table_json = try loadFile(filepath, &buf);
 
     const j_root = try std.json.parseFromSlice(std.json.Value, allocator, table_json, .{});
@@ -96,7 +96,7 @@ fn getTable(name: []const u8, tables: *std.ArrayList(*t.Table)) *t.Table {
 
 fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !void {
     var buf: [1024 * 4]u8 = undefined;
-    const filepath = std.fmt.bufPrintZ(&buf, "{s}.json", .{name}) catch unreachable;
+    const filepath = std.fmt.bufPrintZ(&buf, "{s}.table.json", .{name}) catch unreachable;
     const table_json = try loadFile(filepath, &buf);
 
     const j_root = try std.json.parseFromSlice(std.json.Value, allocator, table_json, .{});
@@ -260,7 +260,10 @@ fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
             }
         }
     }
-    try writeFile(out.items, table.name.slice());
+
+    var buf: [1024 * 4]u8 = undefined;
+    const filepath = std.fmt.bufPrintZ(&buf, "{s}.table", .{table.name.slice()}) catch unreachable;
+    try writeFile(out.items, filepath);
 }
 
 fn writeTableMetadata(table: t.Table, write_stream: anytype) !void {
