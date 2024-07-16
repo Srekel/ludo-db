@@ -174,7 +174,7 @@ pub const Table = struct {
         }
     }
 
-    pub fn visibleRowCount(self: Table) i32 {
+    pub fn visibleColumnCount(self: Table) i32 {
         var count: i32 = 0;
         for (self.columns.slice()) |column| {
             if (column.visible) {

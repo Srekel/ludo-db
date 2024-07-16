@@ -148,6 +148,7 @@ pub fn main() !void {
         }
 
         for (project_tables.items) |table| {
+            var table_valid = true;
             if (!table.is_subtable) {
                 var buf: [1024 * 4]u8 = undefined;
                 const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
@@ -160,6 +161,7 @@ pub fn main() !void {
                             if (zgui.menuItem("Rename", .{})) {
                                 renaming = table;
                             }
+
                             if (zgui.menuItem("Add text column", .{})) {
                                 var column: t.Column = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
@@ -171,6 +173,7 @@ pub fn main() !void {
                                 }
                                 table.columns.appendAssumeCapacity(column);
                             }
+
                             if (zgui.menuItem("Add reference column", .{})) {
                                 var column: t.Column = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
@@ -183,13 +186,87 @@ pub fn main() !void {
                                 for (0..table.row_count) |_| {
                                     column.addRow(table.allocator);
                                 }
-                                table.columns.appendAssumeCapacity(column);
+                                table.columns
+                                    .appendAssumeCapacity(column);
                             }
+
+                            if (zgui.menuItem("Add list column", .{})) {
+                                const subtable = gpa.create(t.Table) catch unreachable;
+                                subtable.* = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
+                                    .allocator = gpa,
+                                    .subtables = std.ArrayList(*t.Table).init(gpa),
+                                };
+                                table.subtables.appendAssumeCapacity(subtable);
+
+                                var subtable_column: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
+                                    .owner_table = table,
+                                    .datatype = .{ .subtable = .{
+                                        .table = subtable,
+                                    } },
+                                };
+                                for (0..table.row_count) |_| {
+                                    subtable_column.addRow(table.allocator);
+                                }
+                                table.columns.appendAssumeCapacity(subtable_column);
+
+                                const subcolumn_fk: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
+                                    .owner_table = subtable,
+                                    .visible = false,
+                                    .datatype = .{ .reference = .{
+                                        .table = table,
+                                        .column = &table.columns.slice()[0],
+                                    } },
+                                };
+                                subtable.columns.appendAssumeCapacity(subcolumn_fk);
+
+                                const id_column: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
+                                    .owner_table = table,
+                                    .datatype = .{ .text = .{} },
+                                };
+                                subtable.columns.appendAssumeCapacity(id_column);
+                            }
+
+                            if (zgui.beginMenu("Delete Table", true)) {
+                                if (zgui.beginMenu("Confirm", true)) {
+                                    if (zgui.menuItem("Super Confirm!", .{})) {
+                                        for (table.columns.slice()) |column| {
+                                            if (column.datatype == .subtable) {
+                                                for (project_tables.items, 0..) |subtable_match, i_stm| {
+                                                    if (column.datatype.subtable.table == subtable_match) {
+                                                        const subtable = project_tables.swapRemove(i_stm);
+                                                        gpa.destroy(subtable);
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+
+                                        for (project_tables.items, 0..) |table_match, i_tm| {
+                                            if (table == table_match) {
+                                                _ = project_tables.swapRemove(i_tm);
+                                                gpa.destroy(table);
+                                                table_valid = false;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    zgui.endMenu();
+                                }
+                                zgui.endMenu();
+                            }
+
                             zgui.endMenu();
                         }
                         zgui.endMenuBar();
                     }
-                    doTable(table, 0, .{}, null);
+
+                    if (table_valid) {
+                        doTable(table, 0, .{}, null);
+                    }
                 }
                 zgui.end();
             }
@@ -252,11 +329,12 @@ fn doTable(
     filter: Filter,
     parent_row: ?usize,
 ) void {
-    if (table.columns.slice().len == 0) {
+    if (table.visibleColumnCount() == 0) {
         return;
     }
+
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
-        .column = table.visibleRowCount() + if (show_row) 1 else 0,
+        .column = table.visibleColumnCount() + if (show_row) 1 else 0,
         .flags = .{
             .resizable = true,
             .row_bg = true,
@@ -296,7 +374,7 @@ fn doTable(
             if (!table_active) {
                 table_active = true;
                 _ = zgui.beginTable(@ptrCast(table.name.slice()), .{
-                    .column = table.visibleRowCount() + if (show_row) 1 else 0,
+                    .column = table.visibleColumnCount() + if (show_row) 1 else 0,
                     .flags = .{
                         .resizable = true,
                         .borders = zgui.TableBorderFlags.all,
