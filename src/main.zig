@@ -7,8 +7,8 @@ const wgpu = zgpu.wgpu;
 const zgui = @import("zgui");
 
 const save = @import("json_format.zig");
-
 const t = @import("table.zig");
+const styles = @import("styles.zig");
 
 const window_title = "Ludo DB";
 
@@ -25,7 +25,7 @@ pub fn main() !void {
 
     zglfw.windowHintTyped(.client_api, .no_api);
 
-    const window = try zglfw.Window.create(900, 600, window_title, null);
+    const window = try zglfw.Window.create(1000, 700, window_title, null);
     defer window.destroy();
     window.setSizeLimits(400, 400, -1, -1);
 
@@ -57,6 +57,7 @@ pub fn main() !void {
 
     zgui.init(gpa);
     defer zgui.deinit();
+    styles.setupStyle();
 
     _ = zgui.io.addFontFromFile(
         "Roboto-Medium.ttf",
