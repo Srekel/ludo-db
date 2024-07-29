@@ -8,6 +8,7 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
 
     const cell_data = column.data.slice()[i_row];
     switch (column.datatype) {
+        .integer => |value| drawInteger(std.mem.asBytes(&value), cell_data),
         .text => drawText(cell_data),
         .reference => |value| drawReference(std.mem.asBytes(&value), cell_data),
         .subtable => |value| return drawSubtable(std.mem.asBytes(&value), cell_data, column),
@@ -15,6 +16,34 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
     }
 
     return null;
+}
+
+pub fn drawInteger(config_bytes: []const u8, celldata: []u8) void {
+    const config: *const ColumnInteger = @alignCast(std.mem.bytesAsValue(ColumnInteger, config_bytes));
+    const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
+    var buf: [1024 * 4]u8 = undefined;
+    const int_str = std.fmt.bufPrintZ(&buf, "{d}", .{int.*}) catch unreachable;
+    _ = int_str; // autofix
+
+    zgui.setNextItemWidth(-1);
+    const drag_speed: f32 = 0.2;
+    _ = drag_speed; // autofix
+
+    _ = zgui.dragScalar("", i64, .{
+        .v = int,
+        .min = config.min,
+        .max = config.max,
+    });
+
+    // _ = zgui.inputText(
+    //     "",
+    //     .{ .buf = @ptrCast(&buf) },
+    // );
+
+    // const int_value = std.fmt.parseInt(i64, &buf, 10) catch blk: {
+    //     break :blk int.*;
+    // };
+    // int.* = int_value;
 }
 
 pub fn drawText(celldata: []u8) void {
@@ -89,7 +118,14 @@ pub const SubTable = struct {
     // default: u32 = 0,
 };
 
+pub const ColumnInteger = struct {
+    default: i64 = 0,
+    min: i64 = std.math.minInt(i64),
+    max: i64 = std.math.maxInt(i64),
+};
+
 pub const ColumnType = union(enum) {
+    integer: ColumnInteger,
     text: struct {
         default: [:0]const u8 = "",
         text_len: u32 = 32,
@@ -133,6 +169,12 @@ pub const Column = struct {
     }
     pub fn addRow(self: *Column, allocator: std.mem.Allocator) void {
         switch (self.datatype) {
+            .integer => |value| {
+                const i_row = allocator.create(i64) catch unreachable;
+                i_row.* = value.default;
+                const i_row_bytes = std.mem.asBytes(i_row);
+                self.data.appendAssumeCapacity(i_row_bytes);
+            },
             .text => |value| {
                 const string = allocator.allocSentinel(u8, value.text_len, 0) catch unreachable;
                 @memcpy(string[0..value.default.len], value.default);
@@ -167,6 +209,22 @@ pub const Table = struct {
     is_subtable: bool = false,
     uid: u32 = 0,
 
+    pub fn init(self: *Table, name: []const u8, allocator: std.mem.Allocator) void {
+        self.* = .{
+            .name = std.BoundedArray(u8, 128).fromSlice(name) catch unreachable,
+            .allocator = allocator,
+            .subtables = std.ArrayList(*Table).initCapacity(allocator, 4) catch unreachable,
+        };
+
+        const column: Column = .{
+            .name = std.BoundedArray(u8, 128).fromSlice("Row") catch unreachable,
+            .owner_table = self,
+            .datatype = .{ .integer = .{ .min = 0 } },
+            .visible = false,
+        };
+        self.columns.appendAssumeCapacity(column);
+    }
+
     pub fn addRow(self: *Table) void {
         self.row_count += 1;
         for (self.columns.slice()) |*column| {
@@ -194,23 +252,3 @@ pub const Table = struct {
         return null;
     }
 };
-
-fn main() void {
-    var table: Table = .{
-        .name = std.BoundedArray(u8, 128).fromSlice("classification"),
-    };
-    {
-        const column: Column = .{
-            .name = std.BoundedArray(u8, 128).fromSlice("classification"),
-            .datatype = .text,
-        };
-        table.columns.appendAssumeCapacity(column);
-    }
-    {
-        const column: Column = .{
-            .name = std.BoundedArray(u8, 128).fromSlice("parents"),
-            .datatype = .table,
-        };
-        table.columns.appendAssumeCapacity(column);
-    }
-}

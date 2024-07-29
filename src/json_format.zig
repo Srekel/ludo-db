@@ -113,6 +113,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
             const column = table.getColumn(j_cmd.object.get("name").?.string).?;
             const datatype = j_cmd.object.get("datatype").?.string;
             if (std.mem.eql(u8, datatype, "reference")) {
+                // TODO: Read metadata settings
                 const ref_table = getTable(j_cmd.object.get("reference_table").?.string, tables);
                 column.datatype = .{ .reference = .{
                     .table = ref_table,
@@ -120,13 +121,19 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 } };
             }
             if (std.mem.eql(u8, datatype, "subtable")) {
+                // TODO: Read metadata settings
                 const subtable = getTable(j_cmd.object.get("subtable_name").?.string, tables);
                 column.datatype = .{ .subtable = .{
                     .table = subtable,
                 } };
             }
             if (std.mem.eql(u8, datatype, "text")) {
+                // TODO: Read metadata settings
                 column.datatype = .{ .text = .{} };
+            }
+            if (std.mem.eql(u8, datatype, "integer")) {
+                // TODO: Read metadata settings
+                column.datatype = .{ .integer = .{} };
             }
         }
 
@@ -150,6 +157,11 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 const j_celldata = j_row.object.get(column.name.slice());
                 const celldata = &column.data.slice()[i_row];
                 switch (column.datatype) {
+                    .integer => {
+                        const int = j_celldata.?.integer;
+                        const celldata_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata.*));
+                        celldata_row.* = @intCast(int);
+                    },
                     .text => {
                         const text_src = j_celldata.?.string;
                         const text_len = 32; // TODO
@@ -163,9 +175,8 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                         const celldata_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata.*));
                         celldata_row.* = @intCast(row);
                     },
-                    else => {},
+                    .subtable => {},
                 }
-                // j_row.object.get(column.name)
             }
         }
     }
@@ -310,6 +321,17 @@ fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) 
     try write_stream.write(@tagName(column.datatype));
 
     switch (column.datatype) {
+        .integer => |value| {
+            try write_stream.objectField("min");
+            try write_stream.write(value.min);
+            try write_stream.objectField("max");
+            try write_stream.write(value.max);
+            try write_stream.objectField("default");
+            try write_stream.write(value.default);
+        },
+        .text => |value| {
+            _ = value; // autofix
+        },
         .reference => |value| {
             try write_stream.objectField("reference_table");
             try write_stream.write(value.table.name.slice());
@@ -323,7 +345,6 @@ fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) 
             try write_stream.objectField("subtable_name");
             try write_stream.write(subtable.name.slice());
         },
-        else => {},
     }
 }
 
@@ -353,6 +374,10 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
         try write_stream.objectField(column.name.slice());
         const celldata = column.data.slice()[row];
         switch (column.datatype) {
+            .integer => {
+                const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
+                try write_stream.write(int);
+            },
             .text => {
                 const text = celldata[0..std.mem.indexOfScalar(u8, celldata, 0).?];
                 try write_stream.write(text);
@@ -364,9 +389,6 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
             .subtable => {
                 try write_stream.write("subtable");
             },
-            // else => {
-            //     try write_stream.write("unknown");
-            // },
         }
     }
 }

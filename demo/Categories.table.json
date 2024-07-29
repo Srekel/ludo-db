@@ -7,6 +7,14 @@
       "is_subtable": false,
       "column_metadata": [
         {
+          "name": "PK",
+          "visible": true,
+          "datatype": "integer",
+          "min": 0,
+          "max": 100000,
+          "default": 0
+        },
+        {
           "name": "category",
           "visible": true,
           "datatype": "text"
@@ -34,6 +42,14 @@
       "is_subtable": true,
       "column_metadata": [
         {
+          "name": "PK",
+          "visible": true,
+          "datatype": "integer",
+          "min": 0,
+          "max": 100000,
+          "default": 0
+        },
+        {
           "name": "FK",
           "visible": false,
           "datatype": "reference",
@@ -60,25 +76,29 @@
           "__index": 0,
           "category": "empty3",
           "parent": 0,
-          "parents": "subtable"
+          "parents": "subtable",
+          "PK": 1
         },
         {
           "__index": 1,
           "category": "empty4",
           "parent": 0,
-          "parents": "subtable"
+          "parents": "subtable",
+          "PK": 2
         },
         {
           "__index": 2,
           "category": "empty5dfdfddd",
           "parent": 1,
-          "parents": "subtable"
+          "parents": "subtable",
+          "PK": 3
         },
         {
           "__index": 3,
           "category": "empty6dfssss",
           "parent": 2,
-          "parents": "subtable"
+          "parents": "subtable",
+          "PK": 4
         }
       ]
     },
@@ -87,36 +107,43 @@
       "rows": [
         {
           "__index": 0,
+          "PK": 1,
           "FK": 0,
           "Parent": 0
         },
         {
           "__index": 1,
+          "PK": 2,
           "FK": 0,
           "Parent": 3
         },
         {
           "__index": 2,
+          "PK": 3,
           "FK": 0,
           "Parent": 1
         },
         {
           "__index": 3,
+          "PK": 4,
           "FK": 3,
           "Parent": 3
         },
         {
           "__index": 4,
+          "PK": 5,
           "FK": 0,
           "Parent": 0
         },
         {
           "__index": 5,
+          "PK": 6,
           "FK": 0,
           "Parent": 0
         },
         {
           "__index": 6,
+          "PK": 7,
           "FK": 1,
           "Parent": 3
         }

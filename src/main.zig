@@ -128,12 +128,7 @@ pub fn main() !void {
                 }
 
                 const table: *t.Table = gpa.create(t.Table) catch unreachable;
-                table.* = .{
-                    .name = std.BoundedArray(u8, 128).fromSlice(table_name) catch unreachable,
-                    .allocator = gpa,
-                    .subtables = std.ArrayList(*t.Table).initCapacity(gpa, 4) catch unreachable,
-                    .is_subtable = false,
-                };
+                table.init(table_name, gpa);
                 {
                     const column: t.Column = .{
                         .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
@@ -161,6 +156,18 @@ pub fn main() !void {
                         if (zgui.beginMenu("Actions", true)) {
                             if (zgui.menuItem("Rename", .{})) {
                                 renaming = table;
+                            }
+
+                            if (zgui.menuItem("Add integer column", .{})) {
+                                var column: t.Column = .{
+                                    .name = std.BoundedArray(u8, 128).fromSlice("integer") catch unreachable,
+                                    .owner_table = table,
+                                    .datatype = .{ .integer = .{} },
+                                };
+                                for (0..table.row_count) |_| {
+                                    column.addRow(table.allocator);
+                                }
+                                table.columns.appendAssumeCapacity(column);
                             }
 
                             if (zgui.menuItem("Add text column", .{})) {

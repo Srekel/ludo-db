@@ -10,6 +10,14 @@
           "name": "id",
           "visible": true,
           "datatype": "text"
+        },
+        {
+          "name": "PK",
+          "visible": true,
+          "datatype": "integer",
+          "min": 0,
+          "max": 9223372036854775807,
+          "default": 0
         }
       ]
     }
@@ -20,7 +28,8 @@
       "rows": [
         {
           "__index": 0,
-          "id": "empty2"
+          "id": "empty2",
+          "PK": 1
         }
       ]
     }
