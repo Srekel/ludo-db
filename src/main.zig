@@ -345,6 +345,9 @@ fn doTable(
         .column = table.visibleColumnCount() + if (show_row) 1 else 0,
         .flags = .{
             .resizable = true,
+            .reorderable = true,
+            .hideable = true,
+            .context_menu_in_body = true,
             .row_bg = true,
             .borders = zgui.TableBorderFlags.all,
         },
@@ -357,9 +360,9 @@ fn doTable(
         }
 
         for (table.columns.slice()) |column| {
-            if (!column.visible) {
-                continue;
-            }
+            // if (!column.visible) {
+            //     continue;
+            // }
             _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{
                 .flags = .{
                     .width_stretch = true,
@@ -401,9 +404,9 @@ fn doTable(
             var subtable_opt: ?*t.Table = null;
             var i_col: usize = if (show_row) 0 else std.math.maxInt(usize);
             for (table.columns.slice()) |column| {
-                if (!column.visible) {
-                    continue;
-                }
+                // if (!column.visible) {
+                //     continue;
+                // }
                 i_col +%= 1;
                 zgui.pushIntId(@intCast(i_col));
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
@@ -412,13 +415,23 @@ fn doTable(
                 if (subtable_opt_temp) |subtable| {
                     subtable_opt = subtable;
                 }
-                zgui.popId();
+                zgui.popId(); // column id
             }
 
-            zgui.popId();
+            zgui.popId(); // row id
             if (subtable_opt) |subtable| {
+                if (zgui.beginPopupContextItem()) // <-- use last item id as popup id
+                {
+                    zgui.text("This is a popup for", .{});
+                    if (zgui.button("Close", .{}))
+                        zgui.closeCurrentPopup();
+                    zgui.endPopup();
+                }
+                // zgui.setItemTooltip("Right-click to open popup");
+
                 table_active = false;
                 zgui.endTable();
+
                 const x = zgui.getCursorPosX();
                 zgui.setCursorPosX(x + 30);
                 doTable(subtable, 0, .{ .fk = i_row }, i_row);
