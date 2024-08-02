@@ -7,17 +7,18 @@
       "is_subtable": false,
       "column_metadata": [
         {
-          "name": "id",
-          "visible": true,
-          "datatype": "text"
-        },
-        {
           "name": "PK",
           "visible": true,
           "datatype": "integer",
+          "is_primary_key": true,
           "min": 0,
           "max": 9223372036854775807,
           "default": 0
+        },
+        {
+          "name": "id",
+          "visible": true,
+          "datatype": "text"
         }
       ]
     }
@@ -28,8 +29,8 @@
       "rows": [
         {
           "__index": 0,
-          "id": "empty2",
-          "PK": 1
+          "PK": 1,
+          "id": "empty2"
         }
       ]
     }

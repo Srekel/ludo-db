@@ -112,6 +112,23 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
         for (j_column_metadata.array.items) |j_cmd| {
             const column = table.getColumn(j_cmd.object.get("name").?.string).?;
             const datatype = j_cmd.object.get("datatype").?.string;
+            if (std.mem.eql(u8, datatype, "integer")) {
+                const is_primary_key = j_cmd.object.get("is_primary_key").?.bool;
+                const min = j_cmd.object.get("min").?.integer;
+                const max = j_cmd.object.get("max").?.integer;
+                const default = j_cmd.object.get("default").?.integer;
+
+                column.datatype = .{ .integer = .{
+                    .is_primary_key = is_primary_key,
+                    .min = min,
+                    .max = max,
+                    .default = default,
+                } };
+            }
+            if (std.mem.eql(u8, datatype, "text")) {
+                // TODO: Read metadata settings
+                column.datatype = .{ .text = .{} };
+            }
             if (std.mem.eql(u8, datatype, "reference")) {
                 // TODO: Read metadata settings
                 const ref_table = getTable(j_cmd.object.get("reference_table").?.string, tables);
@@ -126,14 +143,6 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 column.datatype = .{ .subtable = .{
                     .table = subtable,
                 } };
-            }
-            if (std.mem.eql(u8, datatype, "text")) {
-                // TODO: Read metadata settings
-                column.datatype = .{ .text = .{} };
-            }
-            if (std.mem.eql(u8, datatype, "integer")) {
-                // TODO: Read metadata settings
-                column.datatype = .{ .integer = .{} };
             }
         }
 
@@ -322,6 +331,8 @@ fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) 
 
     switch (column.datatype) {
         .integer => |value| {
+            try write_stream.objectField("is_primary_key");
+            try write_stream.write(value.is_primary_key);
             try write_stream.objectField("min");
             try write_stream.write(value.min);
             try write_stream.objectField("max");

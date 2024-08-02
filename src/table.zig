@@ -122,6 +122,7 @@ pub const ColumnInteger = struct {
     default: i64 = 0,
     min: i64 = std.math.minInt(i64),
     max: i64 = std.math.maxInt(i64),
+    is_primary_key: bool = false,
 };
 
 pub const ColumnType = union(enum) {
@@ -172,6 +173,9 @@ pub const Column = struct {
             .integer => |value| {
                 const i_row = allocator.create(i64) catch unreachable;
                 i_row.* = value.default;
+                if (value.is_primary_key) {
+                    i_row.* = self.data.len + 1;
+                }
                 const i_row_bytes = std.mem.asBytes(i_row);
                 self.data.appendAssumeCapacity(i_row_bytes);
             },

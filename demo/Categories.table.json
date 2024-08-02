@@ -10,6 +10,7 @@
           "name": "PK",
           "visible": true,
           "datatype": "integer",
+          "is_primary_key": true,
           "min": 0,
           "max": 100000,
           "default": 0
@@ -45,6 +46,7 @@
           "name": "PK",
           "visible": true,
           "datatype": "integer",
+          "is_primary_key": true,
           "min": 0,
           "max": 100000,
           "default": 0
@@ -74,31 +76,31 @@
       "rows": [
         {
           "__index": 0,
+          "PK": 1,
           "category": "empty3",
           "parent": 0,
-          "parents": "subtable",
-          "PK": 1
+          "parents": "subtable"
         },
         {
           "__index": 1,
+          "PK": 2,
           "category": "empty4",
           "parent": 0,
-          "parents": "subtable",
-          "PK": 2
+          "parents": "subtable"
         },
         {
           "__index": 2,
+          "PK": 3,
           "category": "empty5dfdfddd",
           "parent": 1,
-          "parents": "subtable",
-          "PK": 3
+          "parents": "subtable"
         },
         {
           "__index": 3,
+          "PK": 4,
           "category": "empty6dfssss",
           "parent": 2,
-          "parents": "subtable",
-          "PK": 4
+          "parents": "subtable"
         }
       ]
     },
