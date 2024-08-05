@@ -130,12 +130,14 @@ pub fn main() !void {
                 const table: *t.Table = gpa.create(t.Table) catch unreachable;
                 table.init(table_name, gpa);
                 {
-                    const column: t.Column = .{
+                    const column = table.columns.addOneAssumeCapacity();
+                    column.* = .{
                         .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
                         .owner_table = table,
-                        .datatype = .{ .text = .{} },
+                        .datatype = .{ .text = .{
+                            .self_column = column,
+                        } },
                     };
-                    table.columns.appendAssumeCapacity(column);
                 }
                 project_tables.appendAssumeCapacity(table);
                 zgui.endMenu();
@@ -159,34 +161,40 @@ pub fn main() !void {
                             }
 
                             if (zgui.menuItem("Add integer column", .{})) {
-                                var column: t.Column = .{
+                                var column = table.columns.addOneAssumeCapacity();
+                                column.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("integer") catch unreachable,
                                     .owner_table = table,
-                                    .datatype = .{ .integer = .{} },
+                                    .datatype = .{ .integer = .{
+                                        .self_column = column,
+                                    } },
                                 };
                                 for (0..table.row_count) |_| {
                                     column.addRow(table.allocator);
                                 }
-                                table.columns.appendAssumeCapacity(column);
                             }
 
                             if (zgui.menuItem("Add text column", .{})) {
-                                var column: t.Column = .{
+                                var column = table.columns.addOneAssumeCapacity();
+                                column.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
                                     .owner_table = table,
-                                    .datatype = .{ .text = .{} },
+                                    .datatype = .{ .text = .{
+                                        .self_column = column,
+                                    } },
                                 };
                                 for (0..table.row_count) |_| {
                                     column.addRow(table.allocator);
                                 }
-                                table.columns.appendAssumeCapacity(column);
                             }
 
                             if (zgui.menuItem("Add reference column", .{})) {
-                                var column: t.Column = .{
+                                var column = table.columns.addOneAssumeCapacity();
+                                column.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
                                     .owner_table = table,
                                     .datatype = .{ .reference = .{
+                                        .self_column = column,
                                         .table = project_tables.items[0],
                                         .column = &project_tables.items[0].columns.buffer[0],
                                     } },
@@ -194,8 +202,6 @@ pub fn main() !void {
                                 for (0..table.row_count) |_| {
                                     column.addRow(table.allocator);
                                 }
-                                table.columns
-                                    .appendAssumeCapacity(column);
                             }
 
                             if (zgui.menuItem("Add list column", .{})) {
@@ -207,35 +213,39 @@ pub fn main() !void {
                                 };
                                 table.subtables.appendAssumeCapacity(subtable);
 
-                                var subtable_column: t.Column = .{
+                                const column = table.columns.addOneAssumeCapacity();
+                                column.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
                                     .owner_table = table,
                                     .datatype = .{ .subtable = .{
+                                        .self_column = column,
                                         .table = subtable,
                                     } },
                                 };
                                 for (0..table.row_count) |_| {
-                                    subtable_column.addRow(table.allocator);
+                                    column.addRow(table.allocator);
                                 }
-                                table.columns.appendAssumeCapacity(subtable_column);
 
-                                const subcolumn_fk: t.Column = .{
+                                const subcolumn_fk = subtable.columns.addOneAssumeCapacity();
+                                subcolumn_fk.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
                                     .owner_table = subtable,
                                     .visible = false,
                                     .datatype = .{ .reference = .{
+                                        .self_column = subcolumn_fk,
                                         .table = table,
                                         .column = &table.columns.slice()[0],
                                     } },
                                 };
-                                subtable.columns.appendAssumeCapacity(subcolumn_fk);
 
-                                const id_column: t.Column = .{
+                                const subcolumn_id = subtable.columns.addOneAssumeCapacity();
+                                subcolumn_id.* = .{
                                     .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
                                     .owner_table = table,
-                                    .datatype = .{ .text = .{} },
+                                    .datatype = .{ .text = .{
+                                        .self_column = column,
+                                    } },
                                 };
-                                subtable.columns.appendAssumeCapacity(id_column);
                             }
 
                             if (zgui.beginMenu("Delete Table", true)) {

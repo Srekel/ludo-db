@@ -97,42 +97,109 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
 pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column) ?*Table {
     _ = config_bytes;
     const is_active: *bool = std.mem.bytesAsValue(bool, celldata);
-    if (zgui.button("TABLE", .{})) {
+
+    var buf: [1024]u8 = undefined;
+    var len: usize = 0;
+    const subtable = column.datatype.subtable.table;
+    const column_fk = subtable.getColumn("FK").?;
+    for (0..subtable.row_count) |i_row| {
+        buf[len] = '{';
+        len += 1;
+        const data_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column_fk.data.slice()[i_row]));
+        if (i_row != data_fk.*) {
+            continue;
+        }
+        for (subtable.columns.slice()) |subcolumn| {
+            len += subcolumn.toBuf(i_row, buf[len..buf.len]);
+            buf[len] = ',';
+            len += 1;
+        }
+        buf[len] = '}';
+        len += 1;
+    }
+    buf[len] = 0;
+    len += 1;
+
+    // const x = zgui.getCursorPosX();
+    // const y = zgui.getCursorPosY();
+    zgui.labelText("", "{s}", .{buf[0..len]});
+
+    // _ = zgui.button("", .{})) {
+    // zgui.button("DelayNone", sz);
+    zgui.sameLine(.{});
+    // if (zgui.isItemHovered(.{ .delay_none = true })) {
+    //     zgui.setCursorPosX(x);
+    //     zgui.setCursorPosY(y);
+    if (zgui.button("#", .{})) {
         is_active.* = !is_active.*;
     }
+    // }
     if (is_active.*) {
         return column.datatype.subtable.table;
     }
     return null;
 }
 
-pub const ColumnReference = struct {
-    table: *Table,
-    column: *Column,
-    default: u32 = 0,
-};
-
-pub const SubTable = struct {
-    table: *Table,
-    // column: *Column,
-    // default: u32 = 0,
-};
-
 pub const ColumnInteger = struct {
+    self_column: *const Column,
     default: i64 = 0,
     min: i64 = std.math.minInt(i64),
     max: i64 = std.math.maxInt(i64),
     is_primary_key: bool = false,
+
+    pub fn toBuf(self: ColumnInteger, i_row: usize, buf: []u8) usize {
+        const celldata = self.self_column.data.slice()[i_row];
+        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
+        const int_str = std.fmt.bufPrint(buf, "{d}", .{int.*}) catch unreachable;
+        return int_str.len;
+    }
+};
+
+pub const ColumnText = struct {
+    self_column: *const Column,
+    default: [:0]const u8 = "",
+    text_len: u32 = 32,
+
+    pub fn toBuf(self: ColumnText, i_row: usize, buf: []u8) usize {
+        const celldata = self.self_column.data.slice()[i_row];
+        const str = std.fmt.bufPrint(buf, "{s}", .{celldata}) catch unreachable;
+        return str.len;
+    }
+};
+
+pub const ColumnReference = struct {
+    self_column: *const Column,
+    table: *Table,
+    column: *Column,
+    default: u32 = 0,
+
+    pub fn toBuf(self: ColumnReference, i_row: usize, buf: []u8) usize {
+        const celldata = self.self_column.data.slice()[i_row];
+        const ref_i_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata));
+
+        return self.column.toBuf(ref_i_row.*, buf);
+    }
+};
+
+pub const ColumnSubTable = struct {
+    self_column: *const Column,
+    table: *Table,
+    // column: *Column,
+    // default: u32 = 0,
+
+    pub fn toBuf(self: ColumnSubTable, i_row: usize, buf: []u8) usize {
+        _ = self; // autofix
+        _ = i_row; // autofix
+        const str = std.fmt.bufPrint(buf, "TABLE", .{}) catch unreachable;
+        return str.len;
+    }
 };
 
 pub const ColumnType = union(enum) {
     integer: ColumnInteger,
-    text: struct {
-        default: [:0]const u8 = "",
-        text_len: u32 = 32,
-    },
+    text: ColumnText,
     reference: ColumnReference,
-    subtable: SubTable,
+    subtable: ColumnSubTable,
     // number_float: .{
     //     .cellsize = @sizeOf(f32),
     // },
@@ -150,6 +217,24 @@ pub const Column = struct {
     visible: bool = true,
     datatype: ColumnType,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
+
+    pub fn toBuf(self: Column, i_row: usize, buf: []u8) usize {
+        switch (self.datatype) {
+            .integer => {
+                return self.datatype.integer.toBuf(i_row, buf);
+            },
+            .text => {
+                return self.datatype.text.toBuf(i_row, buf);
+            },
+            .reference => {
+                return self.datatype.reference.toBuf(i_row, buf);
+            },
+            .subtable => {
+                return self.datatype.subtable.toBuf(i_row, buf);
+            },
+        }
+        return self.column.toBuf(i_row, buf);
+    }
 
     // pub fn setType(self: *Column, datatype: ColumnType) void {
     //     self.datatype = datatype;
@@ -220,13 +305,16 @@ pub const Table = struct {
             .subtables = std.ArrayList(*Table).initCapacity(allocator, 4) catch unreachable,
         };
 
-        const column: Column = .{
+        const column = self.columns.addOneAssumeCapacity();
+        column.* = .{
             .name = std.BoundedArray(u8, 128).fromSlice("Row") catch unreachable,
             .owner_table = self,
-            .datatype = .{ .integer = .{ .min = 0 } },
+            .datatype = .{ .integer = .{
+                .min = 0,
+                .self_column = column,
+            } },
             .visible = false,
         };
-        self.columns.appendAssumeCapacity(column);
     }
 
     pub fn addRow(self: *Table) void {
@@ -239,9 +327,10 @@ pub const Table = struct {
     pub fn visibleColumnCount(self: Table) i32 {
         var count: i32 = 0;
         for (self.columns.slice()) |column| {
-            if (column.visible) {
-                count += 1;
-            }
+            _ = column; // autofix
+            // if (column.visible) {
+            count += 1;
+            // }
         }
         return count;
     }

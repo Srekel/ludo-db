@@ -119,6 +119,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 const default = j_cmd.object.get("default").?.integer;
 
                 column.datatype = .{ .integer = .{
+                    .self_column = column,
                     .is_primary_key = is_primary_key,
                     .min = min,
                     .max = max,
@@ -127,12 +128,15 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
             }
             if (std.mem.eql(u8, datatype, "text")) {
                 // TODO: Read metadata settings
-                column.datatype = .{ .text = .{} };
+                column.datatype = .{ .text = .{
+                    .self_column = column,
+                } };
             }
             if (std.mem.eql(u8, datatype, "reference")) {
                 // TODO: Read metadata settings
                 const ref_table = getTable(j_cmd.object.get("reference_table").?.string, tables);
                 column.datatype = .{ .reference = .{
+                    .self_column = column,
                     .table = ref_table,
                     .column = ref_table.getColumn(j_cmd.object.get("reference_column").?.string).?,
                 } };
@@ -141,6 +145,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                 // TODO: Read metadata settings
                 const subtable = getTable(j_cmd.object.get("subtable_name").?.string, tables);
                 column.datatype = .{ .subtable = .{
+                    .self_column = column,
                     .table = subtable,
                 } };
             }
