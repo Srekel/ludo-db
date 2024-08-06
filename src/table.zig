@@ -11,7 +11,7 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
         .integer => |value| drawInteger(std.mem.asBytes(&value), cell_data),
         .text => drawText(cell_data),
         .reference => |value| drawReference(std.mem.asBytes(&value), cell_data),
-        .subtable => |value| return drawSubtable(std.mem.asBytes(&value), cell_data, column),
+        .subtable => |value| return drawSubtable(std.mem.asBytes(&value), cell_data, column, i_row),
         // else => {},
     }
 
@@ -94,7 +94,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     // }
 }
 
-pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column) ?*Table {
+pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_row: usize) ?*Table {
     _ = config_bytes;
     const is_active: *bool = std.mem.bytesAsValue(bool, celldata);
 
@@ -102,15 +102,15 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column) ?*
     var len: usize = 0;
     const subtable = column.datatype.subtable.table;
     const column_fk = subtable.getColumn("FK").?;
-    for (0..subtable.row_count) |i_row| {
-        buf[len] = '{';
-        len += 1;
-        const data_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column_fk.data.slice()[i_row]));
+    for (0..subtable.row_count) |i_row_st| {
+        const data_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column_fk.data.slice()[i_row_st]));
         if (i_row != data_fk.*) {
             continue;
         }
-        for (subtable.columns.slice()) |subcolumn| {
-            len += subcolumn.toBuf(i_row, buf[len..buf.len]);
+        buf[len] = '{';
+        len += 1;
+        for (subtable.columns.slice()[2..]) |subcolumn| {
+            len += subcolumn.toBuf(i_row_st, buf[len..buf.len]);
             buf[len] = ',';
             len += 1;
         }
@@ -163,7 +163,7 @@ pub const ColumnText = struct {
     pub fn toBuf(self: ColumnText, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
         const str = std.fmt.bufPrint(buf, "{s}", .{celldata}) catch unreachable;
-        return str.len;
+        return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
     }
 };
 
