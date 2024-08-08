@@ -381,7 +381,21 @@ fn doTable(
             });
         }
 
-        zgui.tableHeadersRow();
+        // Custom headers
+        zgui.tableNextRow(.{ .row_flags = .{ .headers = true } });
+        for (table.columns.slice(), 0..) |column, i_col| {
+            _ = zgui.tableSetColumnIndex(@intCast(i_col));
+            const column_name = zgui.tableGetColumnName(.{ .column_n = @intCast(i_col) }); // Retrieve name passed to TableSetupColumn()
+            _ = column_name; // autofix
+            zgui.pushIntId(@intCast(i_col));
+            // zgui.pushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+            _ = zgui.smallButton("##checkall");
+            // zgui.popStyleVar();
+            zgui.sameLine(.{ .offset_from_start_x = 0.0, .spacing = zgui.getStyle().item_inner_spacing[0] });
+            zgui.tableHeader(@ptrCast(column.name.slice()));
+            // zgui.tableHeader(@ptrCast(column_name[0..]));
+            zgui.popId();
+        }
 
         var table_active = true;
         for (start_row..table.row_count) |i_row| {
