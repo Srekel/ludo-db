@@ -12,6 +12,7 @@ const styles = @import("styles.zig");
 
 const window_title = "Ludo DB";
 var project_tables: std.ArrayList(*t.Table) = undefined;
+var renaming: ?*t.Table = null;
 
 pub fn main() !void {
     try zglfw.init();
@@ -85,7 +86,6 @@ pub fn main() !void {
     }
 
     var show_demo = false;
-    var renaming: ?*t.Table = null;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
         zglfw.pollEvents();
@@ -147,7 +147,6 @@ pub fn main() !void {
         }
 
         for (project_tables.items) |table| {
-            const table_valid = true;
             if (!table.is_subtable) {
                 var buf: [1024 * 4]u8 = undefined;
                 const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
@@ -155,9 +154,7 @@ pub fn main() !void {
                     .menu_bar = true,
                     .horizontal_scrollbar = true,
                 } })) {
-                    if (table_valid) {
-                        doTable(table, 0, .{}, null);
-                    }
+                    doTable(table, 0, .{}, null);
                 }
                 zgui.end();
             }
@@ -256,140 +253,15 @@ fn doTable(
 
         // Custom headers
         zgui.tableNextRow(.{ .row_flags = .{ .headers = true } });
-        for (table.columns.slice(), 0..) |column, i_col| {
+        for (table.columns.slice(), 0..) |*column, i_col| {
             _ = zgui.tableSetColumnIndex(@intCast(i_col));
             const column_name = zgui.tableGetColumnName(.{ .column_n = @intCast(i_col) }); // Retrieve name passed to TableSetupColumn()
             _ = column_name; // autofix
             zgui.pushIntId(@intCast(i_col));
-            if (zgui.smallButton("..##checkall")) {
-                if (zgui.beginMenuBar()) {
-                    if (zgui.beginMenu("Actions", true)) {
-                        if (zgui.menuItem("Rename", .{})) {
-                            // renaming = table;
-                        }
-
-                        if (zgui.menuItem("Add integer column", .{})) {
-                            var column_new = table.columns.addOneAssumeCapacity();
-                            column_new.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("integer") catch unreachable,
-                                .owner_table = table,
-                                .datatype = .{ .integer = .{
-                                    .self_column = column_new,
-                                } },
-                            };
-                            for (0..table.row_count) |_| {
-                                column_new.addRow(table.allocator);
-                            }
-                        }
-
-                        if (zgui.menuItem("Add text column_new", .{})) {
-                            var column_new = table.columns.addOneAssumeCapacity();
-                            column_new.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
-                                .owner_table = table,
-                                .datatype = .{ .text = .{
-                                    .self_column = column_new,
-                                } },
-                            };
-                            for (0..table.row_count) |_| {
-                                column_new.addRow(table.allocator);
-                            }
-                        }
-
-                        if (zgui.menuItem("Add reference column_new", .{})) {
-                            var column_new = table.columns.addOneAssumeCapacity();
-                            column_new.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
-                                .owner_table = table,
-                                .datatype = .{ .reference = .{
-                                    .self_column = column_new,
-                                    .table = project_tables.items[0],
-                                    .column = &project_tables.items[0].columns.buffer[0],
-                                } },
-                            };
-                            for (0..table.row_count) |_| {
-                                column_new.addRow(table.allocator);
-                            }
-                        }
-
-                        if (zgui.menuItem("Add list column_new", .{})) {
-                            const subtable = table.allocator.create(t.Table) catch unreachable;
-                            subtable.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
-                                .allocator = table.allocator,
-                                .subtables = std.ArrayList(*t.Table).init(table.allocator),
-                            };
-                            table.subtables.appendAssumeCapacity(subtable);
-
-                            const column_new = table.columns.addOneAssumeCapacity();
-                            column_new.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
-                                .owner_table = table,
-                                .datatype = .{ .subtable = .{
-                                    .self_column = column_new,
-                                    .table = subtable,
-                                } },
-                            };
-                            for (0..table.row_count) |_| {
-                                column_new.addRow(table.allocator);
-                            }
-
-                            const subcolumn_fk = subtable.columns.addOneAssumeCapacity();
-                            subcolumn_fk.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
-                                .owner_table = subtable,
-                                .visible = false,
-                                .datatype = .{ .reference = .{
-                                    .self_column = subcolumn_fk,
-                                    .table = table,
-                                    .column = &table.columns.slice()[0],
-                                } },
-                            };
-
-                            const subcolumn_id = subtable.columns.addOneAssumeCapacity();
-                            subcolumn_id.* = .{
-                                .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
-                                .owner_table = table,
-                                .datatype = .{ .text = .{
-                                    .self_column = column_new,
-                                } },
-                            };
-                        }
-
-                        if (zgui.beginMenu("Delete Table", true)) {
-                            if (zgui.beginMenu("Confirm", true)) {
-                                if (zgui.menuItem("Super Confirm!", .{})) {
-                                    for (table.columns.slice()) |column_tmp| {
-                                        if (column_tmp.datatype == .subtable) {
-                                            for (project_tables.items, 0..) |subtable_match, i_stm| {
-                                                if (column_tmp.datatype.subtable.table == subtable_match) {
-                                                    const subtable = project_tables.swapRemove(i_stm);
-                                                    table.allocator.destroy(subtable);
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    for (project_tables.items, 0..) |table_match, i_tm| {
-                                        if (table == table_match) {
-                                            _ = project_tables.swapRemove(i_tm);
-                                            table.allocator.destroy(table);
-                                            // table_valid = false;
-                                            break;
-                                        }
-                                    }
-                                }
-                                zgui.endMenu();
-                            }
-                            zgui.endMenu();
-                        }
-
-                        zgui.endMenu();
-                    }
-                    zgui.endMenuBar();
-                }
+            if (zgui.smallButton("..")) {
+                zgui.openPopup("column_popup", .{});
             }
+         const table_ald    doColumnPopup(column, table);
             zgui.sameLine(.{ .offset_from_start_x = 0.0, .spacing = zgui.getStyle().item_inner_spacing[0] });
             zgui.tableHeader(@ptrCast(column.name.slice()));
             // zgui.pushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
@@ -478,6 +350,142 @@ fn doTable(
             zgui.endTable();
         }
     }
+}
+
+fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
+    var table_valid = true;
+    _ = column; // autofix
+    if (zgui.beginPopup("column_popup", .{})) {
+
+        // if (zgui.beginMenu("Actions", true)) {
+        if (zgui.menuItem("Rename", .{})) {
+            renaming = table;
+        }
+
+        if (zgui.menuItem("Add integer column", .{})) {
+            var column_new = table.columns.addOneAssumeCapacity();
+            column_new.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("integer") catch unreachable,
+                .owner_table = table,
+                .datatype = .{ .integer = .{
+                    .self_column = column_new,
+                } },
+            };
+            for (0..table.row_count) |_| {
+                column_new.addRow(table.allocator);
+            }
+        }
+
+        if (zgui.menuItem("Add text column_new", .{})) {
+            var column_new = table.columns.addOneAssumeCapacity();
+            column_new.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
+                .owner_table = table,
+                .datatype = .{ .text = .{
+                    .self_column = column_new,
+                } },
+            };
+            for (0..table.row_count) |_| {
+                column_new.addRow(table.allocator);
+            }
+        }
+
+        if (zgui.menuItem("Add reference column_new", .{})) {
+            var column_new = table.columns.addOneAssumeCapacity();
+            column_new.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
+                .owner_table = table,
+                .datatype = .{ .reference = .{
+                    .self_column = column_new,
+                    .table = project_tables.items[0],
+                    .column = &project_tables.items[0].columns.buffer[0],
+                } },
+            };
+            for (0..table.row_count) |_| {
+                column_new.addRow(table.allocator);
+            }
+        }
+
+        if (zgui.menuItem("Add list column_new", .{})) {
+            const subtable = table.allocator.create(t.Table) catch unreachable;
+            subtable.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
+                .allocator = table.allocator,
+                .subtables = std.ArrayList(*t.Table).init(table.allocator),
+            };
+            table.subtables.appendAssumeCapacity(subtable);
+
+            const column_new = table.columns.addOneAssumeCapacity();
+            column_new.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
+                .owner_table = table,
+                .datatype = .{ .subtable = .{
+                    .self_column = column_new,
+                    .table = subtable,
+                } },
+            };
+            for (0..table.row_count) |_| {
+                column_new.addRow(table.allocator);
+            }
+
+            const subcolumn_fk = subtable.columns.addOneAssumeCapacity();
+            subcolumn_fk.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("FK") catch unreachable,
+                .owner_table = subtable,
+                .visible = false,
+                .datatype = .{ .reference = .{
+                    .self_column = subcolumn_fk,
+                    .table = table,
+                    .column = &table.columns.slice()[0],
+                } },
+            };
+
+            const subcolumn_id = subtable.columns.addOneAssumeCapacity();
+            subcolumn_id.* = .{
+                .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
+                .owner_table = table,
+                .datatype = .{ .text = .{
+                    .self_column = column_new,
+                } },
+            };
+        }
+
+        if (zgui.beginMenu("Delete Table", true)) {
+            if (zgui.beginMenu("Confirm", true)) {
+                if (zgui.menuItem("Super Confirm!", .{})) {
+                    for (table.columns.slice()) |column_tmp| {
+                        if (column_tmp.datatype == .subtable) {
+                            for (project_tables.items, 0..) |subtable_match, i_stm| {
+                                if (column_tmp.datatype.subtable.table == subtable_match) {
+                                    const subtable = project_tables.swapRemove(i_stm);
+                                    table.allocator.destroy(subtable);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    for (project_tables.items, 0..) |table_match, i_tm| {
+                        if (table == table_match) {
+                            _ = project_tables.swapRemove(i_tm);
+                            table.allocator.destroy(table);
+                            table_valid = false;
+                            break;
+                        }
+                    }
+                }
+                zgui.endMenu();
+            }
+            zgui.endMenu();
+        }
+
+        // zgui.endMenu();
+        // }
+
+        zgui.endPopup();
+    }
+
+    return table_valid;
 }
 
 pub fn initProject(allocator: std.mem.Allocator) !void {
