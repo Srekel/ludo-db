@@ -76,22 +76,21 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
     const writer = buf.writer();
-    for (config.column.data.slice()) |text| {
-        _ = writer.write(text[0..std.mem.indexOf(u8, text, "\x00").?]) catch unreachable;
+    var buf2: [1024]u8 = undefined;
+
+    for (0..config.table.row_count) |table_row| {
+        const written = config.column.toBuf(table_row, &buf2);
+        _ = writer.write(buf2[0..written]) catch unreachable;
         _ = writer.writeByte(0) catch unreachable;
     }
     _ = writer.writeByte(0) catch unreachable;
-    // _ = writer.write("LOL") catch unreachable;
-    // _ = writer.writeByte(0) catch unreachable;
 
-    // var item: i32 = @intCast(i_row.*);
     zgui.setNextItemWidth(-1);
     _ = zgui.combo("##refcombo", .{
         .current_item = @ptrCast(i_row),
         .items_separated_by_zeros = @ptrCast(buf.items),
         .popup_max_height_in_items = 10,
     });
-    // }
 }
 
 pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_row: usize) ?*Table {
