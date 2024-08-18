@@ -18,13 +18,6 @@ pub fn main() !void {
     try zglfw.init();
     defer zglfw.terminate();
 
-    // Change current working directory to where the executable is located.
-    {
-        var buffer: [1024]u8 = undefined;
-        const path = std.fs.selfExeDirPath(buffer[0..]) catch ".";
-        std.posix.chdir(path) catch {};
-    }
-
     zglfw.windowHintTyped(.client_api, .no_api);
 
     const window = try zglfw.Window.create(1000, 700, window_title, null);

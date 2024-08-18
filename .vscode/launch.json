@@ -16,5 +16,17 @@
             "environment": [],
             "preLaunchTask": "build"
         },
+        {
+            "name": "Tides",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/zig-out/bin/LudoDB.exe",
+            "args": [
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/../elvengroin-legacy/tools/binaries/ludodb/",
+            "environment": [],
+            "preLaunchTask": "build"
+        },
     ]
 }
