@@ -254,12 +254,18 @@ fn doTable(
             if (zgui.smallButton("..")) {
                 zgui.openPopup("column_popup", .{});
             }
-         const table_ald    doColumnPopup(column, table);
-            zgui.sameLine(.{ .offset_from_start_x = 0.0, .spacing = zgui.getStyle().item_inner_spacing[0] });
-            zgui.tableHeader(@ptrCast(column.name.slice()));
+            const table_valid = doColumnPopup(column, table);
             // zgui.pushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
             // zgui.popStyleVar();
             // zgui.tableHeader(@ptrCast(column_name[0..]));
+            if (!table_valid) {
+                zgui.popId();
+                zgui.endTable();
+                return;
+            }
+
+            zgui.sameLine(.{ .offset_from_start_x = 0.0, .spacing = zgui.getStyle().item_inner_spacing[0] });
+            zgui.tableHeader(@ptrCast(column.name.slice()));
             zgui.popId();
         }
 
@@ -284,7 +290,7 @@ fn doTable(
             }
 
             zgui.tableNextRow(.{});
-            zgui.pushIntId(@intCast(i_row));
+            zgui.pushIntId(@intCast(i_row)); // row id
 
             if (show_row) {
                 _ = zgui.tableSetColumnIndex(@intCast(0));
@@ -299,13 +305,14 @@ fn doTable(
                 // }
                 i_col +%= 1;
                 zgui.pushIntId(@intCast(i_col));
+                defer zgui.popId(); // column id
+
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);
 
                 if (subtable_opt_temp) |subtable| {
                     subtable_opt = subtable;
                 }
-                zgui.popId(); // column id
             }
 
             zgui.popId(); // row id
@@ -367,6 +374,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             for (0..table.row_count) |_| {
                 column_new.addRow(table.allocator);
             }
+            table_valid = false;
         }
 
         if (zgui.menuItem("Add text column_new", .{})) {
@@ -381,6 +389,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             for (0..table.row_count) |_| {
                 column_new.addRow(table.allocator);
             }
+            table_valid = false;
         }
 
         if (zgui.menuItem("Add reference column_new", .{})) {
@@ -397,6 +406,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             for (0..table.row_count) |_| {
                 column_new.addRow(table.allocator);
             }
+            table_valid = false;
         }
 
         if (zgui.menuItem("Add list column_new", .{})) {
@@ -441,6 +451,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
                     .self_column = column_new,
                 } },
             };
+            table_valid = false;
         }
 
         if (zgui.beginMenu("Delete Table", true)) {
