@@ -170,11 +170,11 @@ pub const ColumnReference = struct {
     self_column: *const Column,
     table: *Table,
     column: *Column,
-    default: u32 = 0,
+    default: ?u32 = null,
 
     pub fn toBuf(self: ColumnReference, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
-        const ref_i_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata));
+        const ref_i_row: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
 
         return self.column.toBuf(ref_i_row.*, buf);
     }
@@ -309,6 +309,7 @@ pub const Table = struct {
             .name = std.BoundedArray(u8, 128).fromSlice("Row") catch unreachable,
             .owner_table = self,
             .datatype = .{ .integer = .{
+                .is_primary_key = true,
                 .min = 0,
                 .self_column = column,
             } },
@@ -320,6 +321,12 @@ pub const Table = struct {
         self.row_count += 1;
         for (self.columns.slice()) |*column| {
             column.addRow(self.allocator);
+        }
+    }
+
+    pub fn deleteRow(self: *Table, i_row: usize) void {
+        for (self.columns.slice()) |*column| {
+            column.data.orderedRemove(i_row);
         }
     }
 

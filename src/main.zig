@@ -13,6 +13,7 @@ const styles = @import("styles.zig");
 const window_title = "Ludo DB";
 var project_tables: std.ArrayList(*t.Table) = undefined;
 var renaming: ?*t.Table = null;
+var buf: [1024 * 8]u8 = undefined;
 
 pub fn main() !void {
     try zglfw.init();
@@ -107,7 +108,6 @@ pub fn main() !void {
             }
             if (zgui.beginMenu("[+] New Table", true)) {
                 var name_index = project_tables.items.len;
-                var buf: [1024 * 4]u8 = undefined;
                 var table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
                 while (true) {
                     for (project_tables.items) |table_tmp| {
@@ -141,7 +141,6 @@ pub fn main() !void {
 
         for (project_tables.items) |table| {
             if (!table.is_subtable) {
-                var buf: [1024 * 4]u8 = undefined;
                 const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
                 if (zgui.begin(table_name, .{ .flags = .{
                     .menu_bar = true,
@@ -214,9 +213,11 @@ fn doTable(
         return;
     }
 
+    var rows_to_delete = std.ArrayList(usize).initCapacity(table.allocator, 1);
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.visibleColumnCount() + if (show_row) 1 else 0,
         .flags = .{
+            .sizing = .fixed_fit,
             .resizable = true,
             .reorderable = true,
             .hideable = true,
@@ -232,13 +233,17 @@ fn doTable(
             } });
         }
 
-        for (table.columns.slice()) |column| {
+        // var clipper = zgui.ListClipper{};
+        // _ = clipper; // autofix
+
+        for (table.columns.slice(), 0..) |column, i_col| {
             // if (!column.visible) {
             //     continue;
             // }
             _ = zgui.tableSetupColumn(@ptrCast(column.name.slice()), .{
                 .flags = .{
-                    .width_stretch = true,
+                    .width_fixed = i_col == 0,
+                    .width_stretch = i_col != 0,
                     // .disabled = !column.visible,
                 },
             });
@@ -308,6 +313,11 @@ fn doTable(
                 defer zgui.popId(); // column id
 
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
+
+                if (i_col == 0 and zgui.smallButton("[-]")) {
+                    rows_to_delete.append(i_row);
+                }
+
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);
 
                 if (subtable_opt_temp) |subtable| {
@@ -350,6 +360,10 @@ fn doTable(
             zgui.endTable();
         }
     }
+
+    // for (rows_to_delete.items()) |i_row| {
+    //     table.deleteRow(i_row);
+    // }
 }
 
 fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
@@ -410,12 +424,9 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
         }
 
         if (zgui.menuItem("Add list column_new", .{})) {
+            const subtable_name = std.fmt.bufPrintZ(&buf, "{s}::{s}", .{ table.name.slice(), "FIXME" }) catch unreachable;
             const subtable = table.allocator.create(t.Table) catch unreachable;
-            subtable.* = .{
-                .name = std.BoundedArray(u8, 128).fromSlice("Categories::parents") catch unreachable,
-                .allocator = table.allocator,
-                .subtables = std.ArrayList(*t.Table).init(table.allocator),
-            };
+            subtable.init(subtable_name, table.allocator);
             table.subtables.appendAssumeCapacity(subtable);
 
             const column_new = table.columns.addOneAssumeCapacity();
@@ -443,14 +454,14 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
                 } },
             };
 
-            const subcolumn_id = subtable.columns.addOneAssumeCapacity();
-            subcolumn_id.* = .{
-                .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
-                .owner_table = table,
-                .datatype = .{ .text = .{
-                    .self_column = column_new,
-                } },
-            };
+            // const subcolumn_id = subtable.columns.addOneAssumeCapacity();
+            // subcolumn_id.* = .{
+            //     .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
+            //     .owner_table = table,
+            //     .datatype = .{ .text = .{
+            //         .self_column = column_new,
+            //     } },
+            // };
             table_valid = false;
         }
 
@@ -493,7 +504,6 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
 }
 
 pub fn initProject(allocator: std.mem.Allocator) !void {
-    var buf: [1024 * 4]u8 = undefined;
     const project_json = try std.fs.cwd().readFile("ludo_db.config.json", &buf);
 
     const j_root = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
