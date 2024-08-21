@@ -111,21 +111,41 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
     var len: usize = 0;
     const subtable = column.datatype.subtable.table;
     const column_fk = subtable.getColumn("FK").?;
+    buf[len] = '[';
+    len += 1;
+    const subtable_columns = subtable.columns.slice();
     for (0..subtable.row_count) |i_row_st| {
         const data_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column_fk.data.slice()[i_row_st]));
         if (i_row != data_fk.*) {
             continue;
         }
-        buf[len] = '{';
-        len += 1;
-        for (subtable.columns.slice()[2..]) |subcolumn| {
-            len += subcolumn.toBuf(i_row_st, buf[len..buf.len]);
-            buf[len] = ',';
+        if (subtable_columns.len > 3) {
+            buf[len] = '{';
             len += 1;
         }
-        buf[len] = '}';
-        len += 1;
+        for (subtable_columns[2..], 2..) |subcolumn, i_subcolumn| {
+            len += subcolumn.toBuf(i_row_st, buf[len..buf.len]);
+            if (i_subcolumn + 1 < subtable_columns.len) {
+                buf[len] = ',';
+                len += 1;
+                buf[len] = ' ';
+                len += 1;
+            }
+        }
+        if (subtable_columns.len > 3) {
+            buf[len] = '}';
+            len += 1;
+        }
+
+        if (i_row_st + 1 < subtable.row_count) {
+            buf[len] = ',';
+            len += 1;
+            buf[len] = ' ';
+            len += 1;
+        }
     }
+    buf[len] = ']';
+    len += 1;
     buf[len] = 0;
     len += 1;
 
