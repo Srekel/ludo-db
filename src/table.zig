@@ -78,7 +78,8 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     const writer = buf.writer();
     var buf2: [1024]u8 = undefined;
 
-    _ = writer.write("<Invalid>") catch unreachable;
+    _ = writer.write("<Null>") catch unreachable;
+    _ = writer.writeByte(0) catch unreachable;
     for (0..config.table.row_count) |table_row| {
         const written = config.column.toBuf(table_row, &buf2);
         _ = writer.write(buf2[0..written]) catch unreachable;
@@ -87,11 +88,18 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     _ = writer.writeByte(0) catch unreachable;
 
     zgui.setNextItemWidth(-1);
+    var row: i32 = @intCast(if (i_row_opt.*) |i_row| i_row + 1 else 0);
     _ = zgui.combo("##refcombo", .{
-        .current_item = if (i_row_opt) |i_row| @ptrCast(i_row + 1) else 0,
+        .current_item = &row,
         .items_separated_by_zeros = @ptrCast(buf.items),
         .popup_max_height_in_items = 10,
     });
+
+    if (row == 0) {
+        i_row_opt.* = null;
+    } else {
+        i_row_opt.* = @intCast(row - 1);
+    }
 }
 
 pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_row: usize) ?*Table {
@@ -176,10 +184,10 @@ pub const ColumnReference = struct {
     pub fn toBuf(self: ColumnReference, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
         const ref_i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
-        if (ref_i_row_opt) |ref_i_row| {
-            return self.column.toBuf(ref_i_row.*, buf);
+        if (ref_i_row_opt.*) |ref_i_row| {
+            return self.column.toBuf(ref_i_row, buf);
         } else {
-            const str = std.fmt.bufPrint(buf, "<NullRef>", .{}) catch unreachable;
+            const str = std.fmt.bufPrintZ(buf, "<Null>", .{}) catch unreachable;
             return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
         }
     }
