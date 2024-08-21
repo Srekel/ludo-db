@@ -221,7 +221,7 @@ fn doTable(
         .flags = .{
             .sizing = .fixed_fit,
             .resizable = true,
-            .reorderable = true,
+            // .reorderable = true,
             .hideable = true,
             .context_menu_in_body = true,
             .row_bg = true,
@@ -246,6 +246,7 @@ fn doTable(
                 .flags = .{
                     .width_fixed = i_col == 0,
                     .width_stretch = i_col != 0,
+                    .default_hide = !column.visible,
                     // .disabled = !column.visible,
                 },
             });
@@ -316,8 +317,11 @@ fn doTable(
 
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
 
-                if (i_col == 0 and zgui.smallButton("[-]")) {
-                    rows_to_delete.appendAssumeCapacity(i_row);
+                if (i_col == 0) {
+                    if (zgui.button("[-]", .{})) {
+                        rows_to_delete.appendAssumeCapacity(i_row);
+                    }
+                    zgui.sameLine(.{});
                 }
 
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);
