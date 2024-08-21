@@ -186,8 +186,12 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                     },
                     .reference => {
                         const row = j_celldata.?.integer;
-                        const celldata_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata.*));
-                        celldata_row.* = @intCast(row);
+                        const celldata_row: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata.*));
+                        if (row == -1) {
+                            celldata_row.* = null;
+                        } else {
+                            celldata_row.* = @intCast(row);
+                        }
                     },
                     .subtable => {},
                 }
@@ -399,8 +403,12 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
                 try write_stream.write(text);
             },
             .reference => {
-                const i_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata));
-                try write_stream.write(i_row);
+                const i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
+                if (i_row_opt.*) |i_row| {
+                    try write_stream.write(i_row);
+                } else {
+                    try write_stream.write(-1);
+                }
             },
             .subtable => {
                 try write_stream.write("subtable");

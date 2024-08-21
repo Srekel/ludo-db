@@ -58,7 +58,7 @@ pub fn drawText(celldata: []u8) void {
 pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     const y = zgui.getCursorPosY();
     const config: *const ColumnReference = @alignCast(std.mem.bytesAsValue(ColumnReference, config_bytes));
-    const i_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata));
+    const i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
     // zgui.beginDisabled(.{ .disabled = true });
     // zgui.setNextItemAllowOverlap();
     // drawElement(config.table.*, config.column.*, i_row.*);
@@ -78,6 +78,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     const writer = buf.writer();
     var buf2: [1024]u8 = undefined;
 
+    _ = writer.write("<Invalid>") catch unreachable;
     for (0..config.table.row_count) |table_row| {
         const written = config.column.toBuf(table_row, &buf2);
         _ = writer.write(buf2[0..written]) catch unreachable;
@@ -87,7 +88,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
 
     zgui.setNextItemWidth(-1);
     _ = zgui.combo("##refcombo", .{
-        .current_item = @ptrCast(i_row),
+        .current_item = if (i_row_opt) |i_row| @ptrCast(i_row + 1) else 0,
         .items_separated_by_zeros = @ptrCast(buf.items),
         .popup_max_height_in_items = 10,
     });
@@ -174,9 +175,13 @@ pub const ColumnReference = struct {
 
     pub fn toBuf(self: ColumnReference, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
-        const ref_i_row: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
-
-        return self.column.toBuf(ref_i_row.*, buf);
+        const ref_i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
+        if (ref_i_row_opt) |ref_i_row| {
+            return self.column.toBuf(ref_i_row.*, buf);
+        } else {
+            const str = std.fmt.bufPrint(buf, "<NullRef>", .{}) catch unreachable;
+            return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
+        }
     }
 };
 
@@ -271,7 +276,7 @@ pub const Column = struct {
                 self.data.appendAssumeCapacity(string);
             },
             .reference => |value| {
-                const i_row = allocator.create(u32) catch unreachable;
+                const i_row = allocator.create(?u32) catch unreachable;
                 i_row.* = value.default;
                 const i_row_bytes = std.mem.asBytes(i_row);
                 self.data.appendAssumeCapacity(i_row_bytes);

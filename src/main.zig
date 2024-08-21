@@ -315,7 +315,7 @@ fn doTable(
                 _ = zgui.tableSetColumnIndex(@intCast(i_col));
 
                 if (i_col == 0 and zgui.smallButton("[-]")) {
-                    rows_to_delete.append(i_row);
+                    rows_to_delete.appendAssumeCapacity(i_row);
                 }
 
                 const subtable_opt_temp = t.drawElement(table.*, column, i_row);
