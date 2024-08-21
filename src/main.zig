@@ -213,7 +213,9 @@ fn doTable(
         return;
     }
 
-    var rows_to_delete = std.ArrayList(usize).initCapacity(table.allocator, 1);
+    var rows_to_delete = std.ArrayList(usize).initCapacity(table.allocator, 1) catch unreachable;
+    defer rows_to_delete.deinit();
+
     if (zgui.beginTable(@ptrCast(table.name.slice()), .{
         .column = table.visibleColumnCount() + if (show_row) 1 else 0,
         .flags = .{

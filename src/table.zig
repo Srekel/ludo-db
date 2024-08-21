@@ -72,6 +72,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     zgui.setCursorPosY(y);
     // drawElement(config.table.*, config.column.*, i_row.*);
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
     const allocator = arena.allocator();
     var buf = std.ArrayList(u8).init(allocator);
     defer buf.deinit();
