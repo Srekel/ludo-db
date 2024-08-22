@@ -367,9 +367,9 @@ fn doTable(
         }
     }
 
-    // for (rows_to_delete.items()) |i_row| {
-    //     table.deleteRow(i_row);
-    // }
+    for (rows_to_delete.items) |i_row| {
+        table.deleteRow(i_row);
+    }
 }
 
 fn doColumnPopup(column: *t.Column, table: *t.Table) bool {

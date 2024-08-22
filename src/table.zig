@@ -359,8 +359,9 @@ pub const Table = struct {
     }
 
     pub fn deleteRow(self: *Table, i_row: usize) void {
+        // TODO: Deallocate
         for (self.columns.slice()) |*column| {
-            column.data.orderedRemove(i_row);
+            _ = column.data.orderedRemove(i_row);
         }
     }
 
