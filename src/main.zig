@@ -368,7 +368,7 @@ fn doTable(
     }
 
     for (rows_to_delete.items) |i_row| {
-        table.deleteRow(i_row);
+        table.deleteRow(i_row, project_tables.items);
     }
 }
 

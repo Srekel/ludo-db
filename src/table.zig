@@ -176,6 +176,12 @@ pub const ColumnInteger = struct {
     max: i64 = std.math.maxInt(i64),
     is_primary_key: bool = false,
 
+    pub fn getContentPtr(self: *ColumnInteger, i_row: usize) *i64 {
+        const celldata = self.self_column.data.slice()[i_row];
+        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
+        return int;
+    }
+
     pub fn toBuf(self: ColumnInteger, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
         const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
@@ -201,6 +207,12 @@ pub const ColumnReference = struct {
     table: *Table,
     column: *Column,
     default: ?u32 = null,
+
+    pub fn getContentPtr(self: *ColumnReference, i_row: usize) *?u32 {
+        const celldata = self.self_column.data.slice()[i_row];
+        const ref_i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
+        return ref_i_row_opt;
+    }
 
     pub fn toBuf(self: ColumnReference, i_row: usize, buf: []u8) usize {
         const celldata = self.self_column.data.slice()[i_row];
@@ -358,10 +370,34 @@ pub const Table = struct {
         }
     }
 
-    pub fn deleteRow(self: *Table, i_row: usize) void {
+    pub fn deleteRow(self: *Table, i_row: usize, all_tables: []*Table) void {
         // TODO: Deallocate
+        for (all_tables) |table| {
+            for (table.columns.slice()) |*column| {
+                if (column.datatype == .reference) {
+                    if (column.datatype.reference.table != self) {
+                        continue;
+                    }
+
+                    for (0..table.row_count) |i_row2| {
+                        const line_ref_opt: *?u32 = column.datatype.reference.getContentPtr(i_row2);
+                        if (line_ref_opt.* == @as(u32, @intCast(i_row))) {
+                            line_ref_opt.* = null;
+                        }
+                    }
+                }
+            }
+        }
+
         for (self.columns.slice()) |*column| {
             _ = column.data.orderedRemove(i_row);
+        }
+
+        self.row_count -= 1;
+        for (i_row..self.row_count) |i_row2| {
+            const pk: *i64 = self.columns.buffer[0].datatype.integer.getContentPtr(i_row2);
+            pk.* -= 1;
+            std.debug.assert(pk.* > 0);
         }
     }
 
