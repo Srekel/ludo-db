@@ -81,7 +81,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
 
     _ = writer.write("<Null>") catch unreachable;
     _ = writer.writeByte(0) catch unreachable;
-    for (0..config.table.row_count) |table_row| {
+    for (1..config.table.row_count) |table_row| {
         const written = config.column.toBuf(table_row, &buf2);
         _ = writer.write(buf2[0..written]) catch unreachable;
         _ = writer.writeByte(0) catch unreachable;
@@ -89,7 +89,9 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     _ = writer.writeByte(0) catch unreachable;
 
     zgui.setNextItemWidth(-1);
-    var row: i32 = @intCast(if (i_row_opt.*) |i_row| i_row + 1 else 0);
+    const rowu: u32 = @intCast(if (i_row_opt.*) |i_row| i_row else 0);
+    _ = rowu; // autofix
+    var row: i32 = @intCast(if (i_row_opt.*) |i_row| i_row else 0);
     _ = zgui.combo("##refcombo", .{
         .current_item = &row,
         .items_separated_by_zeros = @ptrCast(buf.items),
@@ -99,7 +101,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     if (row == 0) {
         i_row_opt.* = null;
     } else {
-        i_row_opt.* = @intCast(row - 1);
+        i_row_opt.* = @intCast(row);
     }
 }
 
@@ -114,7 +116,7 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
     buf[len] = '[';
     len += 1;
     const subtable_columns = subtable.columns.slice();
-    for (0..subtable.row_count) |i_row_st| {
+    for (1..subtable.row_count) |i_row_st| {
         const data_fk: *u32 = @alignCast(std.mem.bytesAsValue(u32, column_fk.data.slice()[i_row_st]));
         if (i_row != data_fk.*) {
             continue;
@@ -379,7 +381,7 @@ pub const Table = struct {
                         continue;
                     }
 
-                    for (0..table.row_count) |i_row2| {
+                    for (1..table.row_count) |i_row2| {
                         const line_ref_opt: *?u32 = column.datatype.reference.getContentPtr(i_row2);
                         if (line_ref_opt.* == @as(u32, @intCast(i_row))) {
                             line_ref_opt.* = null;

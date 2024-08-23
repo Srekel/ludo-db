@@ -146,7 +146,7 @@ pub fn main() !void {
                     .menu_bar = true,
                     .horizontal_scrollbar = true,
                 } })) {
-                    doTable(table, 0, .{}, null);
+                    doTable(table, 1, .{}, null);
                 }
                 zgui.end();
             }
@@ -347,7 +347,7 @@ fn doTable(
 
                 const x = zgui.getCursorPosX();
                 zgui.setCursorPosX(x + 30);
-                doTable(subtable, 0, .{ .fk = i_row }, i_row);
+                doTable(subtable, 1, .{ .fk = i_row }, i_row);
                 zgui.setCursorPosX(x);
             }
         }

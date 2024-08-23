@@ -1,6 +1,8 @@
 const std = @import("std");
 const t = @import("table.zig");
 
+const VERSION_LATEST = 2;
+
 // ██╗      ██████╗  █████╗ ██████╗
 // ██║     ██╔═══██╗██╔══██╗██╔══██╗
 // ██║     ██║   ██║███████║██║  ██║
@@ -20,6 +22,9 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     const j_root = try std.json.parseFromSlice(std.json.Value, allocator, project_json, .{});
     defer j_root.deinit();
 
+    const j_version_opt = j_root.value.object.get("version");
+    const version = if (j_version_opt) |j_version| j_version.integer else 1;
+
     const j_tables = j_root.value.object.get("tables").?;
 
     // Phase 1, create barebones tables
@@ -34,7 +39,7 @@ pub fn loadProject(tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocato
     for (j_tables.array.items) |j_table| {
         const j_name = j_table.object.get("name");
         const name = j_name.?.string;
-        try finalizeTable(name, tables, allocator);
+        try finalizeTable(name, tables, version, allocator);
     }
 }
 
@@ -80,6 +85,9 @@ fn loadTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.
             };
             table.columns.append(column) catch unreachable;
         }
+
+        // Add empty first "0" row
+        table.addRow();
     }
 
     return main_table.?;
@@ -94,7 +102,7 @@ fn getTable(name: []const u8, tables: *std.ArrayList(*t.Table)) *t.Table {
     unreachable;
 }
 
-fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: std.mem.Allocator) !void {
+fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), version: i64, allocator: std.mem.Allocator) !void {
     var buf: [1024 * 4]u8 = undefined;
     const filepath = std.fmt.bufPrintZ(&buf, "{s}.table.json", .{name}) catch unreachable;
     const table_json = try loadFile(filepath, &buf);
@@ -166,7 +174,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
         const table = getTable(table_name, tables);
 
         const j_rows = j_table_metadata.object.get("rows").?;
-        for (j_rows.array.items, 0..) |j_row, i_row| {
+        for (j_rows.array.items, 1..) |j_row, i_row| {
             for (table.columns.slice()) |*column| {
                 const j_celldata = j_row.object.get(column.name.slice());
                 const celldata = &column.data.slice()[i_row];
@@ -175,6 +183,9 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                         const int = j_celldata.?.integer;
                         const celldata_row: *u32 = @alignCast(std.mem.bytesAsValue(u32, celldata.*));
                         celldata_row.* = @intCast(int);
+                        if (column.datatype.integer.is_primary_key and version == 1) {
+                            celldata_row.* += 1;
+                        }
                     },
                     .text => {
                         const text_src = j_celldata.?.string;
@@ -191,6 +202,9 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), allocator: 
                             celldata_row.* = null;
                         } else {
                             celldata_row.* = @intCast(row);
+                            if (version == 1) {
+                                celldata_row.* = @intCast(row + 1);
+                            }
                         }
                     },
                     .subtable => {},
@@ -270,6 +284,9 @@ fn writeTable(table: t.Table, allocator: std.mem.Allocator) !void {
         try write_stream.beginObject();
         defer write_stream.endObject() catch unreachable;
         {
+            try write_stream.objectField("version");
+            try write_stream.write(VERSION_LATEST);
+
             try write_stream.objectField("table_metadatas");
 
             try write_stream.beginArray();
@@ -378,7 +395,7 @@ fn writeTableData(table: t.Table, write_stream: anytype) !void {
     try write_stream.objectField("rows");
     try write_stream.beginArray();
     defer write_stream.endArray() catch unreachable;
-    for (0..table.row_count) |row_i| {
+    for (1..table.row_count) |row_i| {
         try writeRow(table, row_i, write_stream);
     }
 }
