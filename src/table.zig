@@ -222,6 +222,12 @@ pub const ColumnReference = struct {
     column: *Column,
     default: ?u32 = null,
 
+    pub fn getContent(self: ColumnReference, i_row: usize) ?u32 {
+        const celldata = self.self_column.data.slice()[i_row];
+        const ref_i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
+        return ref_i_row_opt.*;
+    }
+
     pub fn getContentPtr(self: *ColumnReference, i_row: usize) *?u32 {
         const celldata = self.self_column.data.slice()[i_row];
         const ref_i_row_opt: *?u32 = @alignCast(std.mem.bytesAsValue(?u32, celldata));
@@ -385,6 +391,21 @@ pub const Table = struct {
     }
 
     pub fn deleteRow(self: *Table, i_row: usize, all_tables: []*Table) void {
+        for (self.columns.slice()) |*column| {
+            if (column.datatype == .subtable) {
+                const table = column.datatype.subtable.table;
+                const fk_column = table.getColumn("FK").?.datatype.reference;
+                const table_row_count = table.row_count; // Gotta store first.
+                for (1..table_row_count) |i_row2| {
+                    const i_row_reverse = table_row_count - i_row2;
+                    const fk = fk_column.getContent(i_row_reverse).?;
+                    if (fk == i_row) {
+                        table.deleteRow(i_row_reverse, all_tables);
+                    }
+                }
+            }
+        }
+
         // TODO: Deallocate
         for (all_tables) |table| {
             for (table.columns.slice()) |*column| {
@@ -407,21 +428,6 @@ pub const Table = struct {
             _ = column.data.orderedRemove(i_row);
         }
         self.row_count -= 1;
-
-        for (self.columns.slice()) |*column| {
-            if (column.datatype == .subtable) {
-                const table = column.datatype.subtable.table;
-                const fk_column = table.getColumn("FK").?.datatype.integer;
-                const table_row_count = table.row_count; // Gotta store first.
-                for (1..table_row_count) |i_row2| {
-                    const i_row_reverse = table.row_count - i_row2;
-                    const fk = fk_column.getContent(i_row_reverse);
-                    if (fk == i_row_reverse) {
-                        table.deleteRow(i_row_reverse, all_tables);
-                    }
-                }
-            }
-        }
 
         for (i_row..self.row_count) |i_row2| {
             const pk: *i64 = self.columns.buffer[0].datatype.integer.getContentPtr(i_row2);
