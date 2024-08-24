@@ -359,7 +359,7 @@ fn doTable(
 
                 if (parent_row) |fk| {
                     const column = table.getColumn("FK").?;
-                    const column_fk: *u32 = column.getRowAs(column.data.slice().len - 1, u32);
+                    const column_fk: *?u32 = column.getRowAs(column.data.slice().len - 1, ?u32);
                     column_fk.* = @intCast(fk);
                 }
             }
