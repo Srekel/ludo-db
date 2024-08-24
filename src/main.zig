@@ -94,7 +94,7 @@ pub fn main() !void {
         // zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
         if (zgui.beginMainMenuBar()) {
             if (zgui.beginMenu("Save", true)) {
-                save.exportProject(project_tables.items) catch unreachable;
+                save.saveProject(project_tables.items) catch unreachable;
                 zgui.endMenu();
             }
             if (zgui.beginMenu("Load", true)) {

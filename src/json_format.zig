@@ -248,6 +248,9 @@ fn writeProject(tables: []const *t.Table, allocator: std.mem.Allocator) !void {
         try write_stream.beginObject();
         defer write_stream.endObject() catch unreachable;
         {
+            try write_stream.objectField("version");
+            try write_stream.write(VERSION_LATEST);
+
             try write_stream.objectField("tables");
 
             try write_stream.beginArray();
@@ -434,7 +437,7 @@ fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
     }
 }
 
-pub fn exportProject(tables: []const *t.Table) !void {
+pub fn saveProject(tables: []const *t.Table) !void {
     var gpa_state = std.heap.GeneralPurposeAllocator(.{}){};
     defer _ = gpa_state.deinit();
     const gpa = gpa_state.allocator();
