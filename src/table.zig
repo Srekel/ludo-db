@@ -178,6 +178,12 @@ pub const ColumnInteger = struct {
     max: i64 = std.math.maxInt(i64),
     is_primary_key: bool = false,
 
+    pub fn getContent(self: ColumnInteger, i_row: usize) i64 {
+        const celldata = self.self_column.data.slice()[i_row];
+        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
+        return int.*;
+    }
+
     pub fn getContentPtr(self: *ColumnInteger, i_row: usize) *i64 {
         const celldata = self.self_column.data.slice()[i_row];
         const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
@@ -394,8 +400,23 @@ pub const Table = struct {
         for (self.columns.slice()) |*column| {
             _ = column.data.orderedRemove(i_row);
         }
-
         self.row_count -= 1;
+
+        for (self.columns.slice()) |*column| {
+            if (column.datatype == .subtable) {
+                const table = column.datatype.subtable.table;
+                const fk_column = table.getColumn("FK").?.datatype.integer;
+                const table_row_count = table.row_count; // Gotta store first.
+                for (1..table_row_count) |i_row2| {
+                    const i_row_reverse = table.row_count - i_row2;
+                    const fk = fk_column.getContent(i_row_reverse);
+                    if (fk == i_row_reverse) {
+                        table.deleteRow(i_row_reverse, all_tables);
+                    }
+                }
+            }
+        }
+
         for (i_row..self.row_count) |i_row2| {
             const pk: *i64 = self.columns.buffer[0].datatype.integer.getContentPtr(i_row2);
             pk.* -= 1;
