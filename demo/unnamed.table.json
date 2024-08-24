@@ -1,4 +1,5 @@
 {
+  "version": 2,
   "table_metadatas": [
     {
       "name": "unnamed",
@@ -28,7 +29,6 @@
       "name": "unnamed",
       "rows": [
         {
-          "__index": 0,
           "PK": 1,
           "id": "empty2"
         }

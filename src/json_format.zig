@@ -327,7 +327,7 @@ fn writeTableMetadata(table: t.Table, write_stream: anytype) !void {
         try write_stream.write(table.uid);
 
         try write_stream.objectField("row_count");
-        try write_stream.write(table.row_count);
+        try write_stream.write(table.row_count - 1);
 
         try write_stream.objectField("is_subtable");
         try write_stream.write(table.is_subtable);
@@ -378,7 +378,7 @@ fn writeColumnMetadata(table: t.Table, column: t.Column, write_stream: anytype) 
             try write_stream.objectField("reference_column");
             try write_stream.write(value.column.name.slice());
             try write_stream.objectField("reference_default");
-            try write_stream.write(value.default);
+            try write_stream.write(if (value.default != null) value.default else 0);
         },
         .subtable => {
             const subtable = column.datatype.subtable.table;
@@ -406,9 +406,6 @@ fn writeTableData(table: t.Table, write_stream: anytype) !void {
 fn writeRow(table: t.Table, row: usize, write_stream: anytype) !void {
     try write_stream.beginObject();
     defer write_stream.endObject() catch unreachable;
-
-    try write_stream.objectField("__index");
-    try write_stream.write(row);
 
     for (table.columns.slice()) |column| {
         try write_stream.objectField(column.name.slice());
