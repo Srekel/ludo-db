@@ -93,47 +93,48 @@ pub fn main() !void {
         // zgui.setNextWindowPos(.{ .x = 20.0, .y = 20.0, .cond = .first_use_ever });
         // zgui.setNextWindowSize(.{ .w = -1.0, .h = -1.0, .cond = .first_use_ever });
         if (zgui.beginMainMenuBar()) {
-            if (zgui.beginMenu("Save", true)) {
-                save.saveProject(project_tables.items) catch unreachable;
-                zgui.endMenu();
-            }
-            if (zgui.beginMenu("Load", true)) {
-                project_tables.resize(0) catch unreachable;
-                save.loadProject(&project_tables, gpa) catch unreachable;
+            if (zgui.beginMenu("Project", true)) {
+                if (zgui.menuItem("Save", .{})) {
+                    std.debug.print("LOLHELLO\n", .{});
+                    save.saveProject(project_tables.items) catch unreachable;
+                }
+                if (zgui.menuItem("Load", .{})) {
+                    project_tables.resize(0) catch unreachable;
+                    save.loadProject(&project_tables, gpa) catch unreachable;
+                }
+                if (zgui.menuItem("[+] New Table", .{})) {
+                    var name_index = project_tables.items.len;
+                    var table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
+                    while (true) {
+                        for (project_tables.items) |table_tmp| {
+                            if (std.mem.eql(u8, table_tmp.name.slice(), table_name)) {
+                                name_index += 1;
+                                table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+
+                    const table: *t.Table = gpa.create(t.Table) catch unreachable;
+                    table.init(table_name, gpa);
+                    {
+                        const column = table.columns.addOneAssumeCapacity();
+                        column.* = .{
+                            .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
+                            .owner_table = table,
+                            .datatype = .{ .text = .{
+                                .self_column = column,
+                            } },
+                        };
+                    }
+                    project_tables.appendAssumeCapacity(table);
+                }
                 zgui.endMenu();
             }
             if (zgui.beginMenu("(imgui demo)", true)) {
                 show_demo = !show_demo; // TODO
-                zgui.endMenu();
-            }
-            if (zgui.beginMenu("[+] New Table", true)) {
-                var name_index = project_tables.items.len;
-                var table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
-                while (true) {
-                    for (project_tables.items) |table_tmp| {
-                        if (std.mem.eql(u8, table_tmp.name.slice(), table_name)) {
-                            name_index += 1;
-                            table_name = std.fmt.bufPrintZ(&buf, "untitled_table_{d}", .{name_index}) catch unreachable;
-                            break;
-                        }
-                    } else {
-                        break;
-                    }
-                }
-
-                const table: *t.Table = gpa.create(t.Table) catch unreachable;
-                table.init(table_name, gpa);
-                {
-                    const column = table.columns.addOneAssumeCapacity();
-                    column.* = .{
-                        .name = std.BoundedArray(u8, 128).fromSlice("id") catch unreachable,
-                        .owner_table = table,
-                        .datatype = .{ .text = .{
-                            .self_column = column,
-                        } },
-                    };
-                }
-                project_tables.appendAssumeCapacity(table);
                 zgui.endMenu();
             }
             zgui.endMainMenuBar();
