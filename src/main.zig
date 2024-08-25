@@ -238,7 +238,7 @@ fn doTable(
     })) {
         // Headers
         if (show_row) {
-            zgui.tableSetupColumn("Row", .{ .flags = .{
+            zgui.tableSetupColumn("PK", .{ .flags = .{
                 .width_fixed = true,
             } });
         }
@@ -442,12 +442,12 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             const subtable = table.allocator.create(t.Table) catch unreachable;
             subtable.init(subtable_name, table.allocator);
 
-            table.uid = 0;
+            subtable.is_subtable = true;
+            subtable.uid = 0;
             for (project_tables.items) |table2| {
-                table.uid = @max(table.uid, table2.uid) + 1;
+                subtable.uid = @max(subtable.uid, table2.uid) + 1;
             }
 
-            subtable.addRow();
             table.subtables.appendAssumeCapacity(subtable);
 
             const column_new = table.columns.addOneAssumeCapacity();
@@ -474,6 +474,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
                     .column = column_new,
                 } },
             };
+            subtable.addRow();
 
             // const subcolumn_id = subtable.columns.addOneAssumeCapacity();
             // subcolumn_id.* = .{
