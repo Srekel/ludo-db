@@ -68,6 +68,10 @@ pub fn main() !void {
     );
     defer zgui.backend.deinit();
 
+    zgui.io.setConfigFlags(.{
+        .dock_enable = true,
+    });
+
     zgui.getStyle().scaleAllSizes(scale_factor);
 
     try initProject(gpa);
