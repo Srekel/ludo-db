@@ -361,7 +361,7 @@ pub const Table = struct {
     row_count: u32 = 0,
     subtables: std.ArrayList(*Table),
     is_subtable: bool = false,
-    uid: u32 = 0,
+    uid: usize = 0,
 
     pub fn init(self: *Table, name: []const u8, allocator: std.mem.Allocator) void {
         self.* = .{
@@ -372,14 +372,14 @@ pub const Table = struct {
 
         const column = self.columns.addOneAssumeCapacity();
         column.* = .{
-            .name = std.BoundedArray(u8, 128).fromSlice("Row") catch unreachable,
+            .name = std.BoundedArray(u8, 128).fromSlice("PK") catch unreachable,
             .owner_table = self,
             .datatype = .{ .integer = .{
                 .is_primary_key = true,
                 .min = 0,
                 .self_column = column,
             } },
-            .visible = false,
+            .visible = true,
         };
     }
 

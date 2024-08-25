@@ -74,11 +74,6 @@ pub fn main() !void {
     project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
     save.loadProject(&project_tables, gpa) catch unreachable;
 
-    var window_uid: u32 = 0;
-    for (project_tables.items) |table| {
-        window_uid = @max(window_uid, table.uid) + 1;
-    }
-
     var show_demo = false;
 
     while (!window.shouldClose() and window.getKey(.escape) != .press) {
@@ -119,6 +114,12 @@ pub fn main() !void {
 
                     const table: *t.Table = gpa.create(t.Table) catch unreachable;
                     table.init(table_name, gpa);
+
+                    table.uid = 0;
+                    for (project_tables.items) |table2| {
+                        table.uid = @max(table.uid, table2.uid) + 1;
+                    }
+
                     {
                         const column = table.columns.addOneAssumeCapacity();
                         column.* = .{
@@ -130,6 +131,8 @@ pub fn main() !void {
                         };
                     }
                     project_tables.appendAssumeCapacity(table);
+
+                    table.addRow();
                 }
                 zgui.endMenu();
             }
@@ -374,8 +377,8 @@ fn doTable(
 }
 
 fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
-    var table_valid = true;
     _ = column; // autofix
+    var table_valid = true;
     if (zgui.beginPopup("column_popup", .{})) {
 
         // if (zgui.beginMenu("Actions", true)) {
@@ -398,7 +401,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             table_valid = false;
         }
 
-        if (zgui.menuItem("Add text column_new", .{})) {
+        if (zgui.menuItem("Add text column", .{})) {
             var column_new = table.columns.addOneAssumeCapacity();
             column_new.* = .{
                 .name = std.BoundedArray(u8, 128).fromSlice("text") catch unreachable,
@@ -413,7 +416,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             table_valid = false;
         }
 
-        if (zgui.menuItem("Add reference column_new", .{})) {
+        if (zgui.menuItem("Add reference column", .{})) {
             var column_new = table.columns.addOneAssumeCapacity();
             column_new.* = .{
                 .name = std.BoundedArray(u8, 128).fromSlice("ref") catch unreachable,
@@ -430,15 +433,22 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             table_valid = false;
         }
 
-        if (zgui.menuItem("Add list column_new", .{})) {
+        if (zgui.menuItem("Add subtable column", .{})) {
             const subtable_name = std.fmt.bufPrintZ(&buf, "{s}::{s}", .{ table.name.slice(), "FIXME" }) catch unreachable;
             const subtable = table.allocator.create(t.Table) catch unreachable;
             subtable.init(subtable_name, table.allocator);
+
+            table.uid = 0;
+            for (project_tables.items) |table2| {
+                table.uid = @max(table.uid, table2.uid) + 1;
+            }
+
+            subtable.addRow();
             table.subtables.appendAssumeCapacity(subtable);
 
             const column_new = table.columns.addOneAssumeCapacity();
             column_new.* = .{
-                .name = std.BoundedArray(u8, 128).fromSlice("parents") catch unreachable,
+                .name = std.BoundedArray(u8, 128).fromSlice("subtable") catch unreachable,
                 .owner_table = table,
                 .datatype = .{ .subtable = .{
                     .self_column = column_new,
@@ -457,7 +467,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
                 .datatype = .{ .reference = .{
                     .self_column = subcolumn_fk,
                     .table = table,
-                    .column = &table.columns.slice()[0],
+                    .column = column_new,
                 } },
             };
 
