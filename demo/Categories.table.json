@@ -33,12 +33,12 @@
           "name": "parents",
           "visible": true,
           "datatype": "subtable",
-          "subtable_name": "Categories::parents"
+          "subtable_name": "Categories__parents"
         }
       ]
     },
     {
-      "name": "Categories::parents",
+      "name": "Categories__parents",
       "uid": 2,
       "row_count": 7,
       "is_subtable": true,
@@ -102,7 +102,7 @@
       ]
     },
     {
-      "name": "Categories::parents",
+      "name": "Categories__parents",
       "rows": [
         {
           "PK": 1,

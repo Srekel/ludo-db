@@ -7,6 +7,7 @@ const wgpu = zgpu.wgpu;
 const zgui = @import("zgui");
 
 const save = @import("json_format.zig");
+const save_zig = @import("serialize/zig_format.zig");
 const t = @import("table.zig");
 const styles = @import("styles.zig");
 
@@ -95,7 +96,8 @@ pub fn main() !void {
             if (zgui.beginMenu("Project", true)) {
                 if (zgui.menuItem("Save", .{})) {
                     std.debug.print("LOLHELLO\n", .{});
-                    save.saveProject(project_tables.items) catch unreachable;
+                    // save.saveProject(project_tables.items) catch unreachable;
+                    save_zig.saveProject(project_tables.items) catch unreachable;
                 }
                 if (zgui.menuItem("Load", .{})) {
                     project_tables.resize(0) catch unreachable;
