@@ -96,7 +96,7 @@ pub fn main() !void {
             if (zgui.beginMenu("Project", true)) {
                 if (zgui.menuItem("Save", .{})) {
                     std.debug.print("LOLHELLO\n", .{});
-                    // save.saveProject(project_tables.items) catch unreachable;
+                    save.saveProject(project_tables.items) catch unreachable;
                     save_zig.saveProject(project_tables.items) catch unreachable;
                 }
                 if (zgui.menuItem("Load", .{})) {

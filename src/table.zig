@@ -456,4 +456,14 @@ pub const Table = struct {
 
         return null;
     }
+
+    pub fn getColumnConst(self: *const Table, name: []const u8) ?*const Column {
+        for (self.columns.slice()) |*column| {
+            if (std.mem.eql(u8, name, column.name.slice())) {
+                return column;
+            }
+        }
+
+        return null;
+    }
 };
