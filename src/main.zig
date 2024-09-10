@@ -440,7 +440,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
         }
 
         if (zgui.menuItem("Add subtable column", .{})) {
-            const subtable_name = std.fmt.bufPrintZ(&buf, "{s}::{s}", .{ table.name.slice(), "FIXME" }) catch unreachable;
+            const subtable_name = std.fmt.bufPrintZ(&buf, "{s}__{s}", .{ table.name.slice(), "FIXME" }) catch unreachable;
             const subtable = table.allocator.create(t.Table) catch unreachable;
             subtable.init(subtable_name, table.allocator);
 

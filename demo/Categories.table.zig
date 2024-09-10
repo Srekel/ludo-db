@@ -23,49 +23,26 @@ pub const Categories = struct {
 };
 
 pub fn create_Categories() Categories {
-    const table : Categories = .{
+    const table: Categories = .{
         .parent = .{
             // Reference to Categories::category
             1, // empty3
             1, // empty3
             2, // empty4
             3, // empty5dfdfddd
+        },
         .parents = .{
-         .{1,LOL         },
-4,LOL         },
-2,LOL         },
-         },
-1,LOL         },
-1,LOL         },
-4,LOL         },
-         .{         },
-         },
-         },
-         },
-         },
-         },
-         },
-         .{         },
-         },
-         },
-4,LOL         },
-         },
-         },
-         },
-         .{         },
-         },
-         },
-         },
-         },
-         },
-         },
+            .{1, 4, 2, 1, 1, 4},
+            .{},
+            .{4},
+            .{},
+        },
         .integer_col = .{
             0,
             27,
             0,
             0,
         },
-
     };
 
     return table;

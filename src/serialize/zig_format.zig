@@ -40,8 +40,12 @@ fn writeProject(tables: []const *t.Table, allocator: std.mem.Allocator) !void {
     _ = try writer.write("//\n");
     _ = try writer.write("// AUTO GENERATATED BY Ludo DB\n");
     _ = try writer.write("//\n");
+    _ = try writer.write("\n");
 
     for (tables) |table| {
+        if (table.is_subtable) {
+            continue;
+        }
         const table_import = try std.fmt.bufPrintZ(&buf, "pub const {s} = @import(\"{s}.table.zig\");\n", .{
             table.name.slice(),
             table.name.slice(),
@@ -226,7 +230,7 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
 
     const table_name = try std.fmt.bufPrintZ(
         &buf,
-        "    const table : {s} = .{{\n",
+        "    const table: {s} = .{{\n",
         .{table.name.slice()},
     );
 
@@ -289,11 +293,16 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
                 const column_fk = subtable.getColumnConst("FK").?;
 
                 for (1..table.row_count) |i_row1| {
-                    _ = try writer.write("         .{");
-
+                    _ = try writer.write("            .{");
+                    var add_comma = false;
                     for (1..subtable.row_count) |i_row2| {
                         const fk2 = column_fk.datatype.reference.getContent(i_row2).?;
                         if (fk2 == i_row1) {
+                            if (add_comma) {
+                                _ = try writer.write(", ");
+                            }
+                            add_comma = true;
+
                             // TODO functionize
                             for (subtable.columns.slice()[2..]) |column2| {
                                 switch (column2.datatype) {
@@ -302,7 +311,7 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
 
                                         const row_str = try std.fmt.bufPrintZ(
                                             &buf2,
-                                            "{s},",
+                                            "{s}",
                                             .{buf[0..written]},
                                         );
                                         _ = try writer.write(row_str);
@@ -312,7 +321,7 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
 
                                         const row_str = try std.fmt.bufPrintZ(
                                             &buf2,
-                                            "\"{s}\",",
+                                            "\"{s}\"",
                                             .{buf[0..written]},
                                         );
                                         _ = try writer.write(row_str);
@@ -323,7 +332,7 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
 
                                         const row_str = try std.fmt.bufPrintZ(
                                             &buf2,
-                                            "{d},",
+                                            "{d}",
                                             .{value2.getContent(i_row2).?},
                                         );
                                         _ = try writer.write(row_str);
@@ -346,17 +355,16 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
                                         // }
                                     },
                                 }
-
-                                _ = try writer.write("LOL");
                             }
                         }
-                        _ = try writer.write("         },\n");
                     }
+                    _ = try writer.write("},\n");
                 }
             },
         }
+
+        _ = try writer.write("        },\n");
     }
-    _ = try writer.write("        },\n\n");
 
     _ = try writer.write("    };\n\n");
     _ = try writer.write("    return table;\n");
