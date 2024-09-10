@@ -19,22 +19,51 @@ pub const Categories = struct {
     category: [row_count]LudoString = undefined,
     parent: [row_count]u64 = undefined,
     parents: [row_count][7]Categories__parents = undefined,
+    integer_col: [row_count]i64 = undefined,
 };
 
 pub fn create_Categories() Categories {
     const table : Categories = .{
         .parent = .{
-            empty3
-            empty3
-            empty4
-            empty5dfdfddd
-        },
-
+            // Reference to Categories::category
+            1, // empty3
+            1, // empty3
+            2, // empty4
+            3, // empty5dfdfddd
         .parents = .{
-            TABLE
-            TABLE
-            TABLE
-            TABLE
+         .{1,LOL         },
+4,LOL         },
+2,LOL         },
+         },
+1,LOL         },
+1,LOL         },
+4,LOL         },
+         .{         },
+         },
+         },
+         },
+         },
+         },
+         },
+         .{         },
+         },
+         },
+4,LOL         },
+         },
+         },
+         },
+         .{         },
+         },
+         },
+         },
+         },
+         },
+         },
+        .integer_col = .{
+            0,
+            27,
+            0,
+            0,
         },
 
     };

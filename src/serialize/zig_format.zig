@@ -240,19 +240,123 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
         );
         _ = try writer.write(col_str);
 
-        switch (column.datatype) {}
-        for (1..table.row_count) |i_row| {
-            const written = column.toBuf(i_row, &buf);
+        switch (column.datatype) {
+            .integer => {
+                for (1..table.row_count) |i_row| {
+                    const written = column.toBuf(i_row, &buf);
 
-            const row_str = try std.fmt.bufPrintZ(
-                &buf2,
-                "            {s}\n",
-                .{buf[0..written]},
-            );
-            _ = try writer.write(row_str);
+                    const row_str = try std.fmt.bufPrintZ(
+                        &buf2,
+                        "            {s},\n",
+                        .{buf[0..written]},
+                    );
+                    _ = try writer.write(row_str);
+                }
+            },
+            .text => {
+                for (1..table.row_count) |i_row| {
+                    const written = column.toBuf(i_row, &buf);
+
+                    const row_str = try std.fmt.bufPrintZ(
+                        &buf2,
+                        "            \"{s}\",\n",
+                        .{buf[0..written]},
+                    );
+                    _ = try writer.write(row_str);
+                }
+            },
+            .reference => |value| {
+                const ref_str = try std.fmt.bufPrintZ(
+                    &buf2,
+                    "            // Reference to {s}::{s}\n",
+                    .{ value.table.name.slice(), value.column.name.slice() },
+                );
+                _ = try writer.write(ref_str);
+
+                for (1..table.row_count) |i_row| {
+                    const written = column.toBuf(i_row, &buf);
+
+                    const row_str = try std.fmt.bufPrintZ(
+                        &buf2,
+                        "            {d}, // {s}\n",
+                        .{ value.getContent(i_row).?, buf[0..written] },
+                    );
+                    _ = try writer.write(row_str);
+                }
+            },
+            .subtable => |value| {
+                const subtable = value.table;
+                const column_fk = subtable.getColumnConst("FK").?;
+
+                for (1..table.row_count) |i_row1| {
+                    _ = try writer.write("         .{");
+
+                    for (1..subtable.row_count) |i_row2| {
+                        const fk2 = column_fk.datatype.reference.getContent(i_row2).?;
+                        if (fk2 == i_row1) {
+                            // TODO functionize
+                            for (subtable.columns.slice()[2..]) |column2| {
+                                switch (column2.datatype) {
+                                    .integer => {
+                                        const written = column2.toBuf(i_row2, &buf);
+
+                                        const row_str = try std.fmt.bufPrintZ(
+                                            &buf2,
+                                            "{s},",
+                                            .{buf[0..written]},
+                                        );
+                                        _ = try writer.write(row_str);
+                                    },
+                                    .text => {
+                                        const written = column2.toBuf(i_row2, &buf);
+
+                                        const row_str = try std.fmt.bufPrintZ(
+                                            &buf2,
+                                            "\"{s}\",",
+                                            .{buf[0..written]},
+                                        );
+                                        _ = try writer.write(row_str);
+                                    },
+                                    .reference => |value2| {
+                                        const written = column2.toBuf(i_row2, &buf);
+                                        _ = written; // autofix
+
+                                        const row_str = try std.fmt.bufPrintZ(
+                                            &buf2,
+                                            "{d},",
+                                            .{value2.getContent(i_row2).?},
+                                        );
+                                        _ = try writer.write(row_str);
+                                    },
+                                    .subtable => |value2| {
+                                        _ = value2; // autofix
+                                        // const subtable2 = value.table;
+                                        // const column_fk = subtable.getColumnConst("FK").?;
+
+                                        // for (1..table.row_count) |i_row1| {
+                                        //     _ = try writer.write("         .{");
+
+                                        //     for (1..subtable.row_count) |i_row2| {
+                                        //         const fk2 = column_fk.datatype.reference.getContent(i_row2).?;
+                                        //         if (fk2 == i_row1) {
+                                        //             _ = try writer.write("LOL");
+                                        //         }
+                                        //     }
+                                        //     _ = try writer.write("         },\n");
+                                        // }
+                                    },
+                                }
+
+                                _ = try writer.write("LOL");
+                            }
+                        }
+                        _ = try writer.write("         },\n");
+                    }
+                }
+            },
         }
-        _ = try writer.write("        },\n\n");
     }
+    _ = try writer.write("        },\n\n");
 
     _ = try writer.write("    };\n\n");
     _ = try writer.write("    return table;\n");

@@ -34,6 +34,15 @@
           "visible": true,
           "datatype": "subtable",
           "subtable_name": "Categories__parents"
+        },
+        {
+          "name": "integer_col",
+          "visible": true,
+          "datatype": "integer",
+          "is_primary_key": false,
+          "min": -9223372036854775808,
+          "max": 9223372036854775807,
+          "default": 0
         }
       ]
     },
@@ -79,25 +88,29 @@
           "PK": 1,
           "category": "empty3",
           "parent": 1,
-          "parents": "subtable"
+          "parents": "subtable",
+          "integer_col": 0
         },
         {
           "PK": 2,
           "category": "empty4",
           "parent": 1,
-          "parents": "subtable"
+          "parents": "subtable",
+          "integer_col": 27
         },
         {
           "PK": 3,
           "category": "empty5dfdfddd",
           "parent": 2,
-          "parents": "subtable"
+          "parents": "subtable",
+          "integer_col": 0
         },
         {
           "PK": 4,
           "category": "empty6dfssss",
           "parent": 3,
-          "parents": "subtable"
+          "parents": "subtable",
+          "integer_col": 0
         }
       ]
     },
