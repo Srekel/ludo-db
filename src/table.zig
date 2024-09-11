@@ -391,10 +391,11 @@ pub const Table = struct {
     }
 
     pub fn deleteRow(self: *Table, i_row: usize, all_tables: []*Table) void {
+        std.debug.print("deleteRow {s}::{d}\n", .{ self.name.slice(), i_row });
         for (self.columns.slice()) |*column| {
             if (column.datatype == .subtable) {
                 const table = column.datatype.subtable.table;
-                const fk_column = table.getColumn("FK").?.datatype.reference;
+                var fk_column = table.getColumn("FK").?.datatype.reference;
                 const table_row_count = table.row_count; // Gotta store first.
                 for (1..table_row_count) |i_row2| {
                     const i_row_reverse = table_row_count - i_row2;
@@ -417,8 +418,23 @@ pub const Table = struct {
                     for (1..table.row_count) |i_row2| {
                         const line_ref_opt: *?u32 = column.datatype.reference.getContentPtr(i_row2);
                         if (line_ref_opt.* == @as(u32, @intCast(i_row))) {
+                            std.debug.print("  deref {s}::{d} for {d}\n", .{ table.name.slice(), i_row2, i_row });
                             line_ref_opt.* = null;
                         }
+                    }
+                }
+            }
+        }
+
+        for (self.columns.slice()) |*column| {
+            if (column.datatype == .subtable) {
+                const table = column.datatype.subtable.table;
+                var fk_column = table.getColumn("FK").?.datatype.reference;
+                for (1..table.row_count) |i_row2| {
+                    const fk = fk_column.getContentPtr(i_row2);
+                    if (fk.*.? > i_row) {
+                        std.debug.print("  sub {s}::{d} at {d}\n", .{ table.name.slice(), i_row2, fk.*.? });
+                        fk.*.? -= 1;
                     }
                 }
             }
