@@ -157,6 +157,12 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
     buf[len] = 0;
     len += 1;
 
+    const color_alt = is_active.*;
+    if (color_alt) {
+        const cell_bg_color = zgui.colorConvertFloat4ToU32(.{ 0.0, 0.55, 1.0, 1 });
+        zgui.tableSetBgColor(.{ .target = .cell_bg, .color = cell_bg_color });
+    }
+
     // const x = zgui.getCursorPosX();
     // const y = zgui.getCursorPosY();
     zgui.labelText("", "{s}", .{buf[0..len]});
@@ -167,10 +173,18 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
     // if (zgui.isItemHovered(.{ .delay_none = true })) {
     //     zgui.setCursorPosX(x);
     //     zgui.setCursorPosY(y);
+
+    if (color_alt) {
+        zgui.pushStyleColor4f(.{ .idx = .button, .c = .{ 0.0, 0.0, 0.6, 1.0 } });
+        zgui.pushStyleColor4f(.{ .idx = .button_hovered, .c = .{ 0.2, 0.2, 0.8, 1.0 } });
+        zgui.pushStyleColor4f(.{ .idx = .button_active, .c = .{ 0.4, 0.4, 1.0, 1.0 } });
+    }
     if (zgui.button("#", .{})) {
         is_active.* = !is_active.*;
     }
-    // }
+    if (color_alt) {
+        zgui.popStyleColor(.{ .count = 3 });
+    }
     if (is_active.*) {
         return column.datatype.subtable.table;
     }
