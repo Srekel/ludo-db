@@ -1,7 +1,14 @@
 const std = @import("std");
 const zgui = @import("zgui");
-
+const column_text = @import("column_types/text.zig");
 const ROW_COUNT = 1 * 1024;
+
+pub const ColumnTypeRegistry = struct {
+    pub fn registerColumnType(name: []const u8, api: ColumnTypeAPI) void {
+        _ = name;
+        _ = api;
+    }
+};
 
 pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
     _ = table; // autofix
@@ -218,18 +225,6 @@ pub const ColumnInteger = struct {
     }
 };
 
-pub const ColumnText = struct {
-    self_column: *const Column,
-    default: [:0]const u8 = "",
-    text_len: u32 = 32,
-
-    pub fn toBuf(self: ColumnText, i_row: usize, buf: []u8) usize {
-        const celldata = self.self_column.data.slice()[i_row];
-        const str = std.fmt.bufPrint(buf, "{s}", .{celldata}) catch unreachable;
-        return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
-    }
-};
-
 pub const ColumnReference = struct {
     self_column: *const Column,
     table: *Table,
@@ -276,18 +271,13 @@ pub const ColumnSubTable = struct {
 
 pub const ColumnType = union(enum) {
     integer: ColumnInteger,
-    text: ColumnText,
+    text: column_text.ColumnText,
     reference: ColumnReference,
     subtable: ColumnSubTable,
-    // number_float: .{
-    //     .cellsize = @sizeOf(f32),
-    // },
-    // number_integer: .{
-    //     .cellsize = @sizeOf(i32),
-    // },
-    // column_ref: .{
-    //     .cellsize = @sizeOf(u32),
-    // },
+};
+
+pub const ColumnTypeAPI = struct {
+    toBuf: ?*fn (self: Column, i_row: usize, buf: []u8) usize = null,
 };
 
 pub const Column = struct {
@@ -295,9 +285,13 @@ pub const Column = struct {
     owner_table: *Table,
     visible: bool = true,
     datatype: ColumnType,
+    api: ColumnTypeAPI = .{},
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
     pub fn toBuf(self: Column, i_row: usize, buf: []u8) usize {
+        if (self.api.toBuf) |toBufFn| {
+            return toBufFn(self, i_row, buf);
+        }
         switch (self.datatype) {
             .integer => {
                 return self.datatype.integer.toBuf(i_row, buf);
