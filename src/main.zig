@@ -20,7 +20,7 @@ pub fn main() !void {
     try zglfw.init();
     defer zglfw.terminate();
 
-    zglfw.windowHintTyped(.client_api, .no_api);
+    zglfw.windowHint(.client_api, .no_api);
 
     const window = try zglfw.Window.create(1000, 700, window_title, null);
     defer window.destroy();

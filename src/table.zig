@@ -338,7 +338,7 @@ pub const Column = struct {
                 const i_row = allocator.create(i64) catch unreachable;
                 i_row.* = value.default;
                 if (value.is_primary_key) {
-                    i_row.* = self.data.len;
+                    i_row.* = @intCast(self.data.len);
                 }
                 const i_row_bytes = std.mem.asBytes(i_row);
                 self.data.appendAssumeCapacity(i_row_bytes);

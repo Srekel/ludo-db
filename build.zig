@@ -11,8 +11,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    @import("system_sdk").addLibraryPathsTo(exe);
-
     @import("zgpu").addLibraryPathsTo(exe);
 
     const zgui = b.dependency("zgui", .{
@@ -58,7 +56,9 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    @import("system_sdk").addLibraryPathsTo(exe_check);
+    if (b.lazyDependency("system_sdk", .{})) |system_sdk| {
+        exe.addLibraryPath(system_sdk.path("windows/lib/x86_64-windows-gnu"));
+    }
 
     @import("zgpu").addLibraryPathsTo(exe_check);
 

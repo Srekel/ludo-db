@@ -72,17 +72,40 @@ def main():
         "872272205d95bdba33798c94e72c5387a31bc806",
     )
     sync_lib(
-        "zig-gamedev",
-        "https://github.com/Srekel/zig-gamedev.git",
-        "181ef19e47ed02f32bcf3b5ea186587ab8dad24c",
-    )
-    sync_lib(
         "zigimg",
         "https://github.com/zigimg/zigimg.git",
         "563531ac08d70821e9679f4fe01273356b7d2a8a",
     )
 
-    sync_zig_exe("0.13.0")
+    ##############
+    ## ZIG-GAMEDEV
+    sync_lib(
+        "system_sdk",
+        "https://github.com/zig-gamedev/system_sdk",
+        "bf49d627a191e339f70e72668c8333717fb969b0",
+    )
+    sync_lib(
+        "zglfw",
+        "https://github.com/zig-gamedev/zglfw",
+        "f3f35b36e3ae9cb6b85f39e15ab0336c1ee65b4b",
+    )
+    sync_lib(
+        "zgui",
+        "https://github.com/Srekel/zgui.git",
+        "b5b29363a1a1db91519f0d94099c597e49eadfe9",
+    )
+    sync_lib(
+        "zgpu",
+        "https://github.com/zig-gamedev/zgpu.git",
+        "bc10f874cf9c93e347c1298efba87be4f001fc9d",
+    )
+    sync_lib(
+        "zpool",
+        "https://github.com/zig-gamedev/zpool",
+        "163b4ab18936a3d57b5d8375eba1284114402c80",
+    )
+
+    sync_zig_exe("0.14.0-dev.2577+271452d22")
 
     os.chdir("..")
     print("Done syncing external!")
