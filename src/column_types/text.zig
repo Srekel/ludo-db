@@ -15,14 +15,17 @@ pub const ColumnText = struct {
     }
 };
 
-pub fn toBuf(self: ColumnText, i_row: usize, buf: []u8) usize {
+pub fn toBuf(self: *const ColumnText, i_row: usize, buf_ptr: [*]u8, buf_len: u64) callconv(.C) usize {
+    const buf = buf_ptr[0..buf_len];
     const celldata = self.self_column.data.slice()[i_row];
     const str = std.fmt.bufPrint(buf, "{s}", .{celldata}) catch unreachable;
     return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
 }
 
-pub fn registerColumnType(registry: *table.ColumnTypeRegistry) void {
-    registry.registerColumnType("text", .{
+
+pub fn getColumnType() table.ColumnTypeAPI {
+    return .{
+        .name = "text",
         .toBuf = toBuf,
-    });
+    };
 }

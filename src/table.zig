@@ -4,9 +4,15 @@ const column_text = @import("column_types/text.zig");
 const ROW_COUNT = 1 * 1024;
 
 pub const ColumnTypeRegistry = struct {
-    pub fn registerColumnType(name: []const u8, api: ColumnTypeAPI) void {
-        _ = name;
-        _ = api;
+    registry: std.StringArrayHashMap(ColumnTypeAPI),
+
+    pub fn init(self: *ColumnTypeRegistry, allocator: std.mem.Allocator) void {
+        self.registry.init(allocator);
+        self.registry.ensureTotalCapacity(64);
+    }
+
+    pub fn registerColumnType(self: *ColumnTypeRegistry, api: ColumnTypeAPI) void {
+        self.registry.putAssumeCapacity(api.name, api);
     }
 };
 
@@ -276,21 +282,29 @@ pub const ColumnType = union(enum) {
     subtable: ColumnSubTable,
 };
 
-pub const ColumnTypeAPI = struct {
-    toBuf: ?*fn (self: Column, i_row: usize, buf: []u8) usize = null,
+pub const ColumnTypeAPI = extern struct {
+    name: [*:0]const u8 = "",
+
+    toBuf: ?*fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
 };
+
+pub fn registerColumnTypes() void {
+    column_text.getColumnType();
+}
+
+const dummy_api = ColumnTypeAPI{};
 
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
     owner_table: *Table,
     visible: bool = true,
     datatype: ColumnType,
-    api: ColumnTypeAPI = .{},
+    api: *ColumnTypeAPI = &dummy_api,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
     pub fn toBuf(self: Column, i_row: usize, buf: []u8) usize {
         if (self.api.toBuf) |toBufFn| {
-            return toBufFn(self, i_row, buf);
+            return toBufFn(&self, i_row, buf.ptr, buf.len);
         }
         switch (self.datatype) {
             .integer => {
