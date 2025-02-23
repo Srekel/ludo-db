@@ -139,6 +139,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), version: i6
                 column.datatype = .{ .text = .{
                     .self_column = column,
                 } };
+                column.api = t.column_type_registry.registry.getPtr("text").?;
             }
             if (std.mem.eql(u8, datatype, "reference")) {
                 // TODO: Read metadata settings

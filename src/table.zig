@@ -7,12 +7,12 @@ pub const ColumnTypeRegistry = struct {
     registry: std.StringArrayHashMap(ColumnTypeAPI),
 
     pub fn init(self: *ColumnTypeRegistry, allocator: std.mem.Allocator) void {
-        self.registry.init(allocator);
-        self.registry.ensureTotalCapacity(64);
+        self.registry = std.StringArrayHashMap(ColumnTypeAPI).init(allocator);
+        self.registry.ensureTotalCapacity(64) catch unreachable;
     }
 
     pub fn registerColumnType(self: *ColumnTypeRegistry, api: ColumnTypeAPI) void {
-        self.registry.putAssumeCapacity(api.name, api);
+        self.registry.putAssumeCapacity(api.name[0..std.mem.len(api.name)], api);
     }
 };
 
@@ -285,33 +285,35 @@ pub const ColumnType = union(enum) {
 pub const ColumnTypeAPI = extern struct {
     name: [*:0]const u8 = "",
 
-    toBuf: ?*fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
+    toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
 };
 
+pub var column_type_registry: ColumnTypeRegistry = undefined;
+
 pub fn registerColumnTypes() void {
-    column_text.getColumnType();
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    column_type_registry.init(gpa.allocator());
+    column_type_registry.registerColumnType(column_text.getColumnType());
 }
 
-const dummy_api = ColumnTypeAPI{};
+var dummy_api = ColumnTypeAPI{};
 
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
     owner_table: *Table,
     visible: bool = true,
     datatype: ColumnType,
-    api: *ColumnTypeAPI = &dummy_api,
+    api: *const ColumnTypeAPI = &dummy_api,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
     pub fn toBuf(self: Column, i_row: usize, buf: []u8) usize {
         if (self.api.toBuf) |toBufFn| {
             return toBufFn(&self, i_row, buf.ptr, buf.len);
         }
+
         switch (self.datatype) {
             .integer => {
                 return self.datatype.integer.toBuf(i_row, buf);
-            },
-            .text => {
-                return self.datatype.text.toBuf(i_row, buf);
             },
             .reference => {
                 return self.datatype.reference.toBuf(i_row, buf);
@@ -319,6 +321,7 @@ pub const Column = struct {
             .subtable => {
                 return self.datatype.subtable.toBuf(i_row, buf);
             },
+            else => unreachable,
         }
         return self.column.toBuf(i_row, buf);
     }

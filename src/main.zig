@@ -54,7 +54,7 @@ pub fn main() !void {
 
     zgui.init(gpa);
     defer zgui.deinit();
-    // styles.setupStyle();
+    styles.setupStyle();
 
     _ = zgui.io.addFontFromFile(
         "Roboto-Medium.ttf",
@@ -74,6 +74,8 @@ pub fn main() !void {
     });
 
     zgui.getStyle().scaleAllSizes(scale_factor);
+
+    t.registerColumnTypes();
 
     try initProject(gpa);
     project_tables = std.ArrayList(*t.Table).initCapacity(gpa, 128) catch unreachable;
