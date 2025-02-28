@@ -1,7 +1,10 @@
 const std = @import("std");
 const zgui = @import("zgui");
 const column_text = @import("column_types/text.zig");
+const column_integer = @import("column_types/integer.zig");
 const ROW_COUNT = 1 * 1024;
+
+// const primary_key = enum(u32) { _ };
 
 pub const ColumnTypeRegistry = struct {
     registry: std.StringArrayHashMap(ColumnTypeAPI),
@@ -32,7 +35,7 @@ pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
 }
 
 pub fn drawInteger(config_bytes: []const u8, celldata: []u8) void {
-    const config: *const ColumnInteger = @alignCast(std.mem.bytesAsValue(ColumnInteger, config_bytes));
+    const config: *const column_integer.ColumnInteger = @alignCast(std.mem.bytesAsValue(column_integer.ColumnInteger, config_bytes));
     const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
     var buf: [1024 * 4]u8 = undefined;
     const int_str = std.fmt.bufPrintZ(&buf, "{d}", .{int.*}) catch unreachable;
@@ -204,33 +207,6 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
     return null;
 }
 
-pub const ColumnInteger = struct {
-    self_column: *const Column,
-    default: i64 = 0,
-    min: i64 = std.math.minInt(i64),
-    max: i64 = std.math.maxInt(i64),
-    is_primary_key: bool = false,
-
-    pub fn getContent(self: ColumnInteger, i_row: usize) i64 {
-        const celldata = self.self_column.data.slice()[i_row];
-        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
-        return int.*;
-    }
-
-    pub fn getContentPtr(self: *ColumnInteger, i_row: usize) *i64 {
-        const celldata = self.self_column.data.slice()[i_row];
-        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
-        return int;
-    }
-
-    pub fn toBuf(self: ColumnInteger, i_row: usize, buf: []u8) usize {
-        const celldata = self.self_column.data.slice()[i_row];
-        const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
-        const int_str = std.fmt.bufPrint(buf, "{d}", .{int.*}) catch unreachable;
-        return int_str.len;
-    }
-};
-
 pub const ColumnReference = struct {
     self_column: *const Column,
     table: *Table,
@@ -276,7 +252,7 @@ pub const ColumnSubTable = struct {
 };
 
 pub const ColumnType = union(enum) {
-    integer: ColumnInteger,
+    integer: column_integer.ColumnInteger,
     text: column_text.ColumnText,
     reference: ColumnReference,
     subtable: ColumnSubTable,
@@ -284,8 +260,11 @@ pub const ColumnType = union(enum) {
 
 pub const ColumnTypeAPI = extern struct {
     name: [*:0]const u8 = "",
+    elem_size: u32,
+    api_data: [*]u8,
 
     toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
+    getContentPtr: ?*const fn (self: *Column, i_row: usize) callconv(.C) ?[*]u8 = null,
 };
 
 pub var column_type_registry: ColumnTypeRegistry = undefined;
@@ -294,9 +273,13 @@ pub fn registerColumnTypes() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     column_type_registry.init(gpa.allocator());
     column_type_registry.registerColumnType(column_text.getColumnType());
+    column_type_registry.registerColumnType(column_integer.getColumnType());
 }
 
-var dummy_api = ColumnTypeAPI{};
+var dummy_api = ColumnTypeAPI{
+    .elem_size = undefined,
+    .api_data = undefined,
+};
 
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
@@ -312,9 +295,6 @@ pub const Column = struct {
         }
 
         switch (self.datatype) {
-            .integer => {
-                return self.datatype.integer.toBuf(i_row, buf);
-            },
             .reference => {
                 return self.datatype.reference.toBuf(i_row, buf);
             },
@@ -471,7 +451,7 @@ pub const Table = struct {
         self.row_count -= 1;
 
         for (i_row..self.row_count) |i_row2| {
-            const pk: *i64 = self.columns.buffer[0].datatype.integer.getContentPtr(i_row2);
+            const pk: *i64 = self.columns.buffer[0].api.getContentPtr(i_row2);
             pk.* -= 1;
             std.debug.assert(pk.* > 0);
         }

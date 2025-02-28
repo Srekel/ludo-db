@@ -19,6 +19,7 @@ pub fn toBuf(self: *const t.Column, i_row: usize, buf_ptr: [*]u8, buf_len: u64) 
 pub fn getColumnType() t.ColumnTypeAPI {
     return .{
         .name = "text",
+        .elem_size = @sizeOf(usize),
         .toBuf = toBuf,
     };
 }

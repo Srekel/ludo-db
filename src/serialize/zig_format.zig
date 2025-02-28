@@ -236,7 +236,7 @@ pub fn writeTableData(table: *const t.Table, writer: std.ArrayList(u8).Writer) !
 
     _ = try writer.write(table_name);
 
-    for (table.columns.slice()[2..]) |column| {
+    for (table.columns.slice()[1..]) |column| {
         const col_str = try std.fmt.bufPrintZ(
             &buf,
             "        .{s} = .{{\n",
