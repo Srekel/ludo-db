@@ -2,6 +2,7 @@ const std = @import("std");
 const zgui = @import("zgui");
 
 const t = @import("../table.zig");
+const common = @import("common.zig");
 
 pub const ColumnText = struct {
     self_column: *const t.Column,
@@ -16,9 +17,11 @@ pub fn toBuf(self: *const t.Column, i_row: usize, buf_ptr: [*]u8, buf_len: u64) 
     return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
 }
 
-pub fn getColumnType() t.ColumnTypeAPI {
+pub fn getColumnType(plugin_api:*common.PluginApi) t.ColumnTypeAPI {
+ var data = common.alloc(plugin_api, ColumnText);    
     return .{
         .name = "text",
+        .data = std.mem.valueAsBytes(data),
         .elem_size = @sizeOf(usize),
         .toBuf = toBuf,
     };
