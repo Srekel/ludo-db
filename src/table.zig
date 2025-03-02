@@ -1,5 +1,6 @@
 const std = @import("std");
 const zgui = @import("zgui");
+const plugin_common = @import("column_types/common.zig");
 const column_text = @import("column_types/text.zig");
 const column_integer = @import("column_types/integer.zig");
 const ROW_COUNT = 1 * 1024;
@@ -268,12 +269,21 @@ pub const ColumnTypeAPI = extern struct {
 };
 
 pub var column_type_registry: ColumnTypeRegistry = undefined;
+pub var plugin_api: plugin_common.PluginApi = undefined;
+
+fn plugin_alloc(size: usize) callconv(.C) [*]u8 {
+    const ptr = std.heap.c_allocator.alignedAlloc(u8, 8, size) catch unreachable;
+    return ptr.ptr;
+}
 
 pub fn registerColumnTypes() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    plugin_api = .{
+        .alloc = plugin_alloc,
+    };
     column_type_registry.init(gpa.allocator());
-    column_type_registry.registerColumnType(column_text.getColumnType());
-    column_type_registry.registerColumnType(column_integer.getColumnType());
+    column_type_registry.registerColumnType(column_text.getColumnType(&plugin_api));
+    column_type_registry.registerColumnType(column_integer.getColumnType(&plugin_api));
 }
 
 var dummy_api = ColumnTypeAPI{
@@ -451,6 +461,7 @@ pub const Table = struct {
         self.row_count -= 1;
 
         for (i_row..self.row_count) |i_row2| {
+            plugin_common.getContentPtr(self.columns.buffer[0].api, i_row, i64)
             const pk: *i64 = self.columns.buffer[0].api.getContentPtr(i_row2);
             pk.* -= 1;
             std.debug.assert(pk.* > 0);
