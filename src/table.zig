@@ -262,7 +262,6 @@ pub const ColumnType = union(enum) {
 pub const ColumnTypeAPI = extern struct {
     name: [*:0]const u8 = "",
     elem_size: u32,
-    api_data: [*]u8,
 
     toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
     getContentPtr: ?*const fn (self: *Column, i_row: usize) callconv(.C) ?[*]u8 = null,
@@ -271,7 +270,7 @@ pub const ColumnTypeAPI = extern struct {
 pub var column_type_registry: ColumnTypeRegistry = undefined;
 pub var plugin_api: plugin_common.PluginApi = undefined;
 
-fn plugin_alloc(size: usize) callconv(.C) [*]u8 {
+fn plugin_allocPermanent(size: usize) callconv(.C) [*]u8 {
     const ptr = std.heap.c_allocator.alignedAlloc(u8, 8, size) catch unreachable;
     return ptr.ptr;
 }
@@ -279,7 +278,7 @@ fn plugin_alloc(size: usize) callconv(.C) [*]u8 {
 pub fn registerColumnTypes() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     plugin_api = .{
-        .alloc = plugin_alloc,
+        .allocPermanent = plugin_allocPermanent,
     };
     column_type_registry.init(gpa.allocator());
     column_type_registry.registerColumnType(column_text.getColumnType(&plugin_api));
@@ -288,7 +287,7 @@ pub fn registerColumnTypes() void {
 
 var dummy_api = ColumnTypeAPI{
     .elem_size = undefined,
-    .api_data = undefined,
+    .self_data = undefined,
 };
 
 pub const Column = struct {
@@ -298,6 +297,11 @@ pub const Column = struct {
     datatype: ColumnType,
     api: *const ColumnTypeAPI = &dummy_api,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
+
+    pub fn getContentPtr(self: *Column, i_row: usize, T: type) *T {
+        const ptr: *T = @alignCast(@ptrCast(self.api.getContentPtr.?(self, i_row)));
+        return ptr;
+    }
 
     pub fn toBuf(self: Column, i_row: usize, buf: []u8) usize {
         if (self.api.toBuf) |toBufFn| {
@@ -461,8 +465,7 @@ pub const Table = struct {
         self.row_count -= 1;
 
         for (i_row..self.row_count) |i_row2| {
-            plugin_common.getContentPtr(self.columns.buffer[0].api, i_row, i64)
-            const pk: *i64 = self.columns.buffer[0].api.getContentPtr(i_row2);
+            const pk: *i64 = self.columns.buffer[0].getContentPtr(i_row2, i64);
             pk.* -= 1;
             std.debug.assert(pk.* > 0);
         }

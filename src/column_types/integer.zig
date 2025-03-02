@@ -33,12 +33,17 @@ pub fn toBuf(self: *const t.Column, i_row: usize, buf_ptr: [*]u8, buf_len: u64) 
 }
 
 pub fn getColumnType(plugin_api: *common.PluginApi) t.ColumnTypeAPI {
-    const data = common.alloc(plugin_api, ColumnInteger);
+    _ = plugin_api; // autofix
     return .{
         .name = "text",
-        .api_data = std.mem.asBytes(data),
         .elem_size = @sizeOf(i64),
         .toBuf = toBuf,
         .getContentPtr = getContentPtr,
     };
+}
+
+pub fn create(plugin_api: *common.PluginApi) t.ColumnTypeAPI {
+    const data = common.alloc(plugin_api, ColumnInteger);
+    data = .{};
+    return data;
 }
