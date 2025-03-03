@@ -1,5 +1,6 @@
 const std = @import("std");
 const t = @import("table.zig");
+const plugin = @import("column_types/common.zig");
 
 const VERSION_LATEST = 2;
 
@@ -133,6 +134,8 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), version: i6
                     .max = max,
                     .default = default,
                 } };
+                column.api = t.column_type_registry.registry.getPtr("integer").?;
+                column.api_data = column.api.create.?(&plugin.api, column);
             }
             if (std.mem.eql(u8, datatype, "text")) {
                 // TODO: Read metadata settings
@@ -140,6 +143,7 @@ fn finalizeTable(name: []const u8, tables: *std.ArrayList(*t.Table), version: i6
                     .self_column = column,
                 } };
                 column.api = t.column_type_registry.registry.getPtr("text").?;
+                column.api_data = column.api.create.?(&plugin.api, column);
             }
             if (std.mem.eql(u8, datatype, "reference")) {
                 // TODO: Read metadata settings

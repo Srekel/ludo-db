@@ -10,17 +10,26 @@ const save = @import("json_format.zig");
 const save_zig = @import("serialize/zig_format.zig");
 const t = @import("table.zig");
 const styles = @import("styles.zig");
+const plugin = @import("column_types/common.zig");
 
 const window_title = "Ludo DB";
 var project_tables: std.ArrayList(*t.Table) = undefined;
 var renaming: ?*t.Table = null;
 var buf: [1024 * 8]u8 = undefined;
 
+fn plugin_allocPermanent(size: usize) callconv(.C) [*]u8 {
+    const ptr = std.heap.c_allocator.alignedAlloc(u8, 8, size) catch unreachable;
+    return ptr.ptr;
+}
+
 pub fn main() !void {
     try zglfw.init();
     defer zglfw.terminate();
 
     zglfw.windowHint(.client_api, .no_api);
+    plugin.api = .{
+        .allocPermanent = plugin_allocPermanent,
+    };
 
     const window = try zglfw.Window.create(1000, 700, window_title, null);
     defer window.destroy();

@@ -1,6 +1,6 @@
 const std = @import("std");
 const zgui = @import("zgui");
-const plugin_common = @import("column_types/common.zig");
+const plugin = @import("column_types/common.zig");
 const column_text = @import("column_types/text.zig");
 const column_integer = @import("column_types/integer.zig");
 const ROW_COUNT = 1 * 1024;
@@ -261,34 +261,23 @@ pub const ColumnType = union(enum) {
 
 pub const ColumnTypeAPI = extern struct {
     name: [*:0]const u8 = "",
-    elem_size: u32,
+    elem_size: u32 = undefined,
 
+    create: ?*const fn (plugin_api: *plugin.PluginApi, column: *Column) callconv(.C) [*]u8 = null,
     toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
     getContentPtr: ?*const fn (self: *Column, i_row: usize) callconv(.C) ?[*]u8 = null,
 };
 
 pub var column_type_registry: ColumnTypeRegistry = undefined;
-pub var plugin_api: plugin_common.PluginApi = undefined;
-
-fn plugin_allocPermanent(size: usize) callconv(.C) [*]u8 {
-    const ptr = std.heap.c_allocator.alignedAlloc(u8, 8, size) catch unreachable;
-    return ptr.ptr;
-}
 
 pub fn registerColumnTypes() void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    plugin_api = .{
-        .allocPermanent = plugin_allocPermanent,
-    };
     column_type_registry.init(gpa.allocator());
-    column_type_registry.registerColumnType(column_text.getColumnType(&plugin_api));
-    column_type_registry.registerColumnType(column_integer.getColumnType(&plugin_api));
+    column_type_registry.registerColumnType(column_text.getColumnType(&plugin.api));
+    column_type_registry.registerColumnType(column_integer.getColumnType(&plugin.api));
 }
 
-var dummy_api = ColumnTypeAPI{
-    .elem_size = undefined,
-    .self_data = undefined,
-};
+var dummy_api = ColumnTypeAPI{};
 
 pub const Column = struct {
     name: std.BoundedArray(u8, 128) = .{},
@@ -296,6 +285,7 @@ pub const Column = struct {
     visible: bool = true,
     datatype: ColumnType,
     api: *const ColumnTypeAPI = &dummy_api,
+    api_data: [*]u8 = undefined,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
     pub fn getContentPtr(self: *Column, i_row: usize, T: type) *T {

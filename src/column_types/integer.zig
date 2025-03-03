@@ -32,18 +32,21 @@ pub fn toBuf(self: *const t.Column, i_row: usize, buf_ptr: [*]u8, buf_len: u64) 
     return int_str.len;
 }
 
+pub fn create(plugin_api: *common.PluginApi, column: *t.Column) callconv(.C) [*]u8 {
+    const data = common.allocPermanent(plugin_api, ColumnInteger);
+    data.* = .{
+        .self_column = column,
+    };
+    return @ptrCast(data);
+}
+
 pub fn getColumnType(plugin_api: *common.PluginApi) t.ColumnTypeAPI {
     _ = plugin_api; // autofix
     return .{
-        .name = "text",
+        .name = "integer",
         .elem_size = @sizeOf(i64),
+        .create = create,
         .toBuf = toBuf,
         .getContentPtr = getContentPtr,
     };
-}
-
-pub fn create(plugin_api: *common.PluginApi) t.ColumnTypeAPI {
-    const data = common.alloc(plugin_api, ColumnInteger);
-    data = .{};
-    return data;
 }
