@@ -20,47 +20,21 @@ pub const ColumnTypeRegistry = struct {
     }
 };
 
-pub fn drawElement(table: Table, column: Column, i_row: usize) ?*Table {
+pub fn drawElement(table: Table, column: Column, i_row: usize) usize {
     _ = table; // autofix
+    if (column.api.draw) |draw| {
+        return draw(&column, i_row);
+    }
 
     const cell_data = column.data.slice()[i_row];
     switch (column.datatype) {
-        .integer => |value| drawInteger(std.mem.asBytes(&value), cell_data),
         .text => drawText(cell_data),
         .reference => |value| drawReference(std.mem.asBytes(&value), cell_data),
         .subtable => |value| return drawSubtable(std.mem.asBytes(&value), cell_data, column, i_row),
-        // else => {},
+        else => unreachable,
     }
 
-    return null;
-}
-
-pub fn drawInteger(config_bytes: []const u8, celldata: []u8) void {
-    const config: *const column_integer.ColumnInteger = @alignCast(std.mem.bytesAsValue(column_integer.ColumnInteger, config_bytes));
-    const int: *i64 = @alignCast(std.mem.bytesAsValue(i64, celldata));
-    var buf: [1024 * 4]u8 = undefined;
-    const int_str = std.fmt.bufPrintZ(&buf, "{d}", .{int.*}) catch unreachable;
-    _ = int_str; // autofix
-
-    zgui.setNextItemWidth(-1);
-    const drag_speed: f32 = 0.2;
-    _ = drag_speed; // autofix
-
-    _ = zgui.dragScalar("", i64, .{
-        .v = int,
-        .min = config.min,
-        .max = config.max,
-    });
-
-    // _ = zgui.inputText(
-    //     "",
-    //     .{ .buf = @ptrCast(&buf) },
-    // );
-
-    // const int_value = std.fmt.parseInt(i64, &buf, 10) catch blk: {
-    //     break :blk int.*;
-    // };
-    // int.* = int_value;
+    return 0;
 }
 
 pub fn drawText(celldata: []u8) void {
@@ -122,7 +96,7 @@ pub fn drawReference(config_bytes: []const u8, celldata: []u8) void {
     }
 }
 
-pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_row: usize) ?*Table {
+pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_row: usize) usize {
     _ = config_bytes;
     const is_active: *bool = std.mem.bytesAsValue(bool, celldata);
 
@@ -203,9 +177,9 @@ pub fn drawSubtable(config_bytes: []const u8, celldata: []u8, column: Column, i_
         zgui.popStyleColor(.{ .count = 3 });
     }
     if (is_active.*) {
-        return column.datatype.subtable.table;
+        return column.datatype.subtable.table.uid;
     }
-    return null;
+    return 0;
 }
 
 pub const ColumnReference = struct {
@@ -259,13 +233,22 @@ pub const ColumnType = union(enum) {
     subtable: ColumnSubTable,
 };
 
+pub const DeleteRowsData = extern struct {
+    count: usize,
+    rows: [*]usize,
+    table_uid: i64,
+};
+
 pub const ColumnTypeAPI = extern struct {
     name: [*:0]const u8 = "",
     elem_size: u32 = undefined,
+    plugin_api: *plugin.PluginApi = undefined,
 
-    create: ?*const fn (plugin_api: *plugin.PluginApi, column: *Column) callconv(.C) [*]u8 = null,
-    toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
+    create: ?*const fn (column: *Column) callconv(.C) [*]u8 = null,
+    draw: ?*const fn (self: *const Column, i_row: usize) callconv(.C) usize = null,
     getContentPtr: ?*const fn (self: *Column, i_row: usize) callconv(.C) ?[*]u8 = null,
+    onDeleteRow: ?*const fn (self: *Column, i_row: usize) callconv(.C) DeleteRowsData = null,
+    toBuf: ?*const fn (self: *const Column, i_row: usize, buf: [*]u8, bufLen: u64) callconv(.C) usize = null,
 };
 
 pub var column_type_registry: ColumnTypeRegistry = undefined;
@@ -285,7 +268,7 @@ pub const Column = struct {
     visible: bool = true,
     datatype: ColumnType,
     api: *const ColumnTypeAPI = &dummy_api,
-    api_data: [*]u8 = undefined,
+    config: [*]u8 = undefined,
     data: std.BoundedArray([]u8, ROW_COUNT) = .{},
 
     pub fn getContentPtr(self: *Column, i_row: usize, T: type) *T {
@@ -370,7 +353,7 @@ pub const Table = struct {
     row_count: u32 = 0,
     subtables: std.ArrayList(*Table),
     is_subtable: bool = false,
-    uid: usize = 0,
+    uid: usize = 1,
 
     pub fn init(self: *Table, name: []const u8, allocator: std.mem.Allocator) void {
         self.* = .{
@@ -402,6 +385,22 @@ pub const Table = struct {
     pub fn deleteRow(self: *Table, i_row: usize, all_tables: []*Table) void {
         std.debug.print("deleteRow {s}::{d}\n", .{ self.name.slice(), i_row });
         for (self.columns.slice()) |*column| {
+            if (column.api.onDeleteRow) |onDeleteRow| {
+                const rows_to_delete = onDeleteRow(column, i_row);
+                if (rows_to_delete.table_uid != 0) {
+                    const table2: *Table = blk: {
+                        for (all_tables) |other_table| {
+                            if (other_table.uid == rows_to_delete.table_uid) {
+                                break :blk other_table;
+                            }
+                        }
+                        unreachable;
+                    };
+                    for (0..rows_to_delete.count, rows_to_delete.rows) |_, i_row2| {
+                        table2.deleteRow(i_row2, all_tables);
+                    }
+                }
+            }
             if (column.datatype == .subtable) {
                 const table = column.datatype.subtable.table;
                 var fk_column = table.getColumn("FK").?.datatype.reference;

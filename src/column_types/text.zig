@@ -17,8 +17,8 @@ pub fn toBuf(self: *const t.Column, i_row: usize, buf_ptr: [*]u8, buf_len: u64) 
     return std.mem.indexOfSentinel(u8, 0, @ptrCast(str));
 }
 
-pub fn create(plugin_api: *plugin.PluginApi, column: *t.Column) callconv(.C) [*]u8 {
-    const data = plugin.allocPermanent(plugin_api, ColumnText);
+pub fn create(column: *t.Column) callconv(.C) [*]u8 {
+    const data = plugin.allocPermanent(column.api.plugin_api, ColumnText);
     data.* = .{
         .self_column = column,
     };
@@ -26,9 +26,9 @@ pub fn create(plugin_api: *plugin.PluginApi, column: *t.Column) callconv(.C) [*]
 }
 
 pub fn getColumnType(plugin_api: *plugin.PluginApi) t.ColumnTypeAPI {
-    _ = plugin_api; // autofix
     return .{
         .name = "text",
+        .plugin_api = plugin_api,
         .create = create,
         .elem_size = @sizeOf(usize),
         .toBuf = toBuf,

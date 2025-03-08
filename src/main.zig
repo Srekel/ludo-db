@@ -132,7 +132,7 @@ pub fn main() !void {
                     const table: *t.Table = gpa.create(t.Table) catch unreachable;
                     table.init(table_name, gpa);
 
-                    table.uid = 0;
+                    table.uid = 1;
                     for (project_tables.items) |table2| {
                         table.uid = @max(table.uid, table2.uid) + 1;
                     }
@@ -161,7 +161,7 @@ pub fn main() !void {
         }
 
         for (project_tables.items) |table| {
-            if (!table.is_subtable) {
+            if (!table.is_subtable or true) {
                 const table_name = std.fmt.bufPrintZ(&buf, "{s}###{d}", .{ table.name.slice(), table.uid }) catch unreachable;
                 if (zgui.begin(table_name, .{ .flags = .{
                     .menu_bar = true,
@@ -345,10 +345,14 @@ fn doTable(
                     zgui.sameLine(.{});
                 }
 
-                const subtable_opt_temp = t.drawElement(table.*, column, i_row);
-
-                if (subtable_opt_temp) |subtable| {
-                    subtable_opt = subtable;
+                const subtable_uid = t.drawElement(table.*, column, i_row);
+                if (subtable_uid != 0) {
+                    for (project_tables.items) |subtable| {
+                        if (subtable.uid == subtable_uid) {
+                            subtable_opt = subtable;
+                            break;
+                        }
+                    }
                 }
             }
 
@@ -456,7 +460,7 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
             subtable.init(subtable_name, table.allocator);
 
             subtable.is_subtable = true;
-            subtable.uid = 0;
+            subtable.uid = 1;
             for (project_tables.items) |table2| {
                 subtable.uid = @max(subtable.uid, table2.uid) + 1;
             }
