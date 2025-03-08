@@ -416,6 +416,8 @@ fn doColumnPopup(column: *t.Column, table: *t.Table) bool {
                     .self_column = column_new,
                 } },
             };
+            column_new.api = t.column_type_registry.registry.getPtr("integer").?;
+            column_new.config = column_new.api.create.?(column_new);
             for (0..table.row_count) |_| {
                 column_new.addRow(table.allocator);
             }

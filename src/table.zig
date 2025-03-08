@@ -293,17 +293,6 @@ pub const Column = struct {
         return self.column.toBuf(i_row, buf);
     }
 
-    // pub fn setType(self: *Column, datatype: ColumnType) void {
-    //     self.datatype = datatype;
-    //     switch (datatype) {
-    //         .subtable => {
-    //             var subtable = self.parent_table.subtables.addOneAssumeCapacity();
-    //             _ = subtable; // autofix
-    //         },
-    //         else => void,
-    //     }
-    // }
-
     pub fn getRow(self: *Column, row: usize) []u8 {
         return self.data.buffer[row];
     }
