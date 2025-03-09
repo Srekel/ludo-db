@@ -2,6 +2,7 @@ const std = @import("std");
 
 pub const PluginApi = extern struct {
     allocPermanent: *const fn (usize) callconv(.C) [*]u8,
+    // createTable: *const fn (usize) callconv(.C) [*]u8,
 };
 
 pub var api: PluginApi = undefined;

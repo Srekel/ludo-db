@@ -13,6 +13,7 @@ pub fn create(column: *t.Column) callconv(.C) [*]u8 {
     const data = common.allocPermanent(column.api.plugin_api, ColumnSubTable);
     data.* = .{
         .self_column = column,
+        .owner_table_uid = column.owner_table.uid,
     };
     return @ptrCast(data);
 }
