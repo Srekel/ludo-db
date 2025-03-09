@@ -63,7 +63,7 @@ pub fn main() !void {
 
     zgui.init(gpa);
     defer zgui.deinit();
-    styles.setupStyle();
+    // styles.setupStyle();
 
     _ = zgui.io.addFontFromFile(
         "Roboto-Medium.ttf",
